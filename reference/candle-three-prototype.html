@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Candle Three</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>
+/* Surveyor's level book. Sheet on ground, blue-green rules, graphite ink, one stake-yellow accent. */
+:root{
+  --ground:#e4e9e1; --sheet:#f6f8f2; --ink:#1b2226; --muted:#55625f; --rule:#c8d6ce; --rule-2:#dfe8e2;
+  --accent:#f2c200; --on-accent:#1b2226; --bull:#1a7f52; --bear:#bf3a2a; --on-solid:#ffffff; --warn:#8a5a00;
+  --field:#ffffff;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,sans-serif;
+  --mono:"Spline Sans Mono",ui-monospace,monospace;
+  --r:4px; --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#090b10; --sheet:#12151c; --ink:#eceef3; --muted:#a3acbb; --rule:#2a303c; --rule-2:#1c212b;
+  --bull:#4fcf94; --bear:#ff7d6b; --on-solid:#090b10; --warn:#f0b43c; --field:#1a1e27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#090b10; --sheet:#12151c; --ink:#eceef3; --muted:#a3acbb; --rule:#2a303c; --rule-2:#1c212b;
+  --bull:#4fcf94; --bear:#ff7d6b; --on-solid:#090b10; --warn:#f0b43c; --field:#1a1e27; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scrollbar-color:var(--rule) transparent;scrollbar-width:thin}
+body{margin:0;background:var(--ground);color:var(--ink);font:400 16px/1.5 var(--body);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;caret-color:var(--accent);accent-color:var(--accent)}
+::selection{background:var(--accent);color:var(--on-accent)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--rule);border-radius:5px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;box-shadow:0 0 0 5px var(--accent)}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* page: one sheet of the book */
+.page{max-width:640px;margin:0 auto;min-height:100dvh;background:var(--sheet);
+  border-inline:1px solid var(--rule);padding:0 max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.brand{display:flex;align-items:center;justify-content:space-between;padding:calc(14px + env(safe-area-inset-top)) 0 12px;border-bottom:2px solid var(--ink)}
+.mark{display:flex;align-items:center;gap:10px;font:700 24px/1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.mark svg{width:26px;height:22px;flex:none}
+.icon-btn{display:inline-grid;place-items:center;width:44px;height:44px;border:1px solid var(--rule);border-radius:var(--r);background:transparent;color:var(--ink);font-size:20px}
+.icon-btn:hover{background:var(--rule-2)}
+.view{display:none;padding-top:22px;animation:in .28s var(--ease)}
+.view.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+h1{font:700 clamp(34px,9vw,44px)/1 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:0 0 8px;text-wrap:balance}
+h1:focus,h1:focus-visible{outline:none;box-shadow:none}
+.lede{margin:0 0 18px;color:var(--muted);max-width:56ch}
+h2{font:600 26px/1.1 var(--display);margin:0;text-transform:uppercase;letter-spacing:.02em}
+.sub{font-size:14px;color:var(--muted);margin:0}
+
+/* run bar */
+.bar{position:sticky;top:0;z-index:5;background:var(--sheet);margin-inline:-16px;padding:12px 16px 10px;border-bottom:1px solid var(--ink);display:flex;flex-direction:column;gap:10px}
+.bar-top{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:var(--r);overflow:hidden;background:var(--field);padding:0}
+.seg button{border:0;background:transparent;padding:0 14px;min-height:40px;font:600 14px/1 var(--body);color:var(--muted)}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{color:#fff}
+.seg button[aria-pressed="true"].bull{background:var(--bull);color:var(--on-solid)}
+.seg button[aria-pressed="true"].bear{background:var(--bear);color:var(--on-solid)}
+.seg.plain button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.status{font:600 14px/1 var(--mono);padding:11px 12px;border-radius:var(--r);border:1.5px solid var(--ink);background:var(--field);white-space:nowrap}
+.status.go{background:var(--bull);border-color:var(--bull);color:var(--on-solid)}
+.status.stop{background:var(--bear);border-color:var(--bear);color:var(--on-solid)}
+.run{display:flex;align-items:flex-end;gap:10px}
+.staff{flex:1;display:flex;gap:8px;min-width:0}
+.leg{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cells{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}
+.cells i{height:12px;border:1px solid var(--ink);background:transparent;border-radius:1px;transition:background-color .2s var(--ease)}
+.cells i.on{background:var(--accent)}
+.staff.closed .cells i{background:var(--bull);border-color:var(--bull);transition-delay:calc(var(--i)*45ms)}
+.staff.void .cells i{background:color-mix(in srgb,var(--bear) 30%,transparent);border-color:var(--bear)}
+.leg span{font:500 11px/1 var(--mono);color:var(--muted);letter-spacing:.04em}
+
+/* guard + notes */
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1.5px solid var(--warn);border-radius:var(--r);margin:0 0 16px;font-size:14px}
+.note i{font-size:20px;color:var(--warn);flex:none;margin-top:1px}
+
+/* legs */
+.leg-sec{padding-top:26px}
+.leg-head{display:flex;align-items:baseline;gap:10px;border-top:2px solid var(--ink);padding-top:10px}
+.tf{font:500 12px/1 var(--mono);padding:4px 6px;border:1px solid var(--ink);border-radius:2px;align-self:center}
+.count{margin-left:auto;font:500 13px/1 var(--mono);color:var(--muted)}
+.leg-sec .sub{margin:6px 0 4px}
+.leg-sec.stop .leg-head{border-color:var(--bear)} .leg-sec.stop h2{color:var(--bear)}
+ul.rows{list-style:none;margin:0;padding:0}
+.rows li{border-bottom:1px solid var(--rule)}
+.rows label{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:start;padding:13px 2px;min-height:56px;cursor:pointer}
+.rows label:hover{background:color-mix(in srgb,var(--rule-2) 70%,transparent)}
+.rows input{appearance:none;-webkit-appearance:none;width:28px;height:28px;margin:0;border:2px solid var(--ink);border-radius:var(--r);background:var(--field);display:grid;place-items:center;cursor:pointer}
+.rows input::after{content:"";width:12px;height:7px;border-left:3px solid var(--on-accent);border-bottom:3px solid var(--on-accent);transform:translateY(-1px) rotate(-45deg) scale(0);transition:transform .16s var(--ease)}
+.rows input:checked{background:var(--accent);border-color:var(--ink)}
+.rows input:checked::after{transform:translateY(-1px) rotate(-45deg) scale(1)}
+.stop .rows input:checked{background:var(--bear);border-color:var(--bear)}
+.stop .rows input:checked::after{border-color:var(--on-solid)}
+.rows b{font-weight:600;display:block;line-height:1.3;text-wrap:pretty}
+.rows small{display:block;color:var(--muted);font-size:14px;line-height:1.4;margin-top:3px;max-width:52ch}
+.rows input:checked ~ .t b{text-decoration:none}
+.lvl{font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding-top:6px;color:var(--muted)}
+.lvl.req{color:var(--ink)}
+
+/* buttons + fields */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 20px;border:1.5px solid var(--ink);border-radius:var(--r);background:var(--accent);color:var(--on-accent);font:700 20px/1 var(--display);text-transform:uppercase;letter-spacing:.05em;transition:transform .12s var(--ease)}
+.btn:active{transform:translateY(1px) scale(.99)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.danger{background:var(--bear);border-color:var(--bear);color:var(--on-solid)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+.save{margin-top:26px;border-top:2px solid var(--ink);padding-top:16px;display:flex;flex-direction:column;gap:8px}
+.f{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.f>label,.f>span.l{font:600 14px/1.2 var(--body)}
+.f .h{font-size:13px;color:var(--muted)}
+input[type=text],input[type=number],input[type=datetime-local],select,textarea{width:100%;min-height:48px;padding:10px 12px;background:var(--field);border:1.5px solid var(--ink);border-radius:var(--r);font-size:16px}
+textarea{min-height:88px;resize:vertical}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* details */
+details{border-top:1px solid var(--rule)}
+details>summary{list-style:none;cursor:pointer;padding:14px 2px;font-weight:600;display:flex;justify-content:space-between;align-items:center;min-height:48px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"+";font:500 18px var(--mono)}
+details[open]>summary::after{content:"-"}
+details p,details li{color:var(--muted);margin:0 0 12px;font-size:15px}
+details ul{padding-left:20px;margin:0}
+.fold{margin-top:30px;border-bottom:1px solid var(--rule);padding-bottom:6px}
+.fold h2{padding-top:10px;border-top:2px solid var(--ink)}
+.fold>details:first-of-type{border-top:0}
+
+/* log */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px}
+.chip{min-height:40px;padding:0 12px;border:1.5px solid var(--ink);border-radius:var(--r);background:transparent;font:600 14px var(--body)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.filters select{width:auto;min-height:40px;padding:6px 10px;font-size:14px}
+.sample{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px dashed var(--ink);border-radius:var(--r);padding:8px 10px 8px 12px;font-size:13px;margin-bottom:16px}
+.sample button{min-height:36px;border:1.5px solid var(--ink);border-radius:var(--r);background:transparent;padding:0 10px;font:600 13px var(--body)}
+.day{margin-top:20px}
+.day h3{display:flex;justify-content:space-between;font:600 14px/1 var(--mono);margin:0;padding:8px 0;border-bottom:2px solid var(--ink)}
+.day h3 .num.pos{color:var(--bull)} .day h3 .num.neg{color:var(--bear)}
+.trade{display:grid;grid-template-columns:46px 1fr auto;gap:12px;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--rule);padding:12px 2px;min-height:64px;align-items:center}
+.trade:hover{background:color-mix(in srgb,var(--rule-2) 70%,transparent)}
+.trade .tm{font:500 13px var(--mono);color:var(--muted)}
+.trade .i{font-weight:700;display:flex;gap:6px;align-items:center}
+.trade .i i{font-size:16px}
+.bullc{color:var(--bull)} .bearc{color:var(--bear)} .mutedc{color:var(--muted)}
+.trade .m{font-size:13px;color:var(--muted);margin-top:2px}
+.trade .r{text-align:right;font:600 17px var(--mono)}
+.trade .o{display:block;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.pill{font:600 11px/1 var(--mono);padding:3px 5px;border:1px solid currentColor;border-radius:2px;text-transform:uppercase;letter-spacing:.04em;margin-right:6px;white-space:nowrap}
+.pill.valid{color:var(--bull)} .pill.no{color:var(--bear)} .pill.inc{color:var(--muted)}
+.pos{color:var(--bull)} .neg{color:var(--bear)}
+.empty{border:1.5px dashed var(--ink);border-radius:var(--r);padding:28px 18px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.empty p{margin:0;color:var(--muted);max-width:34ch}
+
+/* calendar */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-head h2{font-size:22px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal .dow{font:500 11px var(--mono);color:var(--muted);text-align:center;padding:4px 0}
+.cal .d{min-height:54px;border:1px solid var(--rule);border-radius:2px;padding:4px;display:flex;flex-direction:column;justify-content:space-between;font:500 11px var(--mono);background:var(--field)}
+.cal .d b{font-weight:500;color:var(--muted)}
+.cal .d .v{font-weight:600;font-size:12px;text-align:right}
+.cal .d.p{background:color-mix(in srgb,var(--bull) calc(var(--k)*38% + 8%),var(--field))}
+.cal .d.n{background:color-mix(in srgb,var(--bear) calc(var(--k)*38% + 8%),var(--field))}
+.cal .d.out{visibility:hidden}
+.cal .d.today{outline:2px solid var(--ink);outline-offset:-2px}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:15px}
+.tbl th{font:600 12px/1.2 var(--mono);text-align:right;color:var(--muted);padding:8px 4px;border-bottom:2px solid var(--ink);letter-spacing:.04em;text-transform:uppercase}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{padding:11px 4px;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tbl td:first-child{font-family:var(--body);font-weight:600}
+.tally{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.tally li{display:flex;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid var(--rule)}
+.tally .num{font-weight:600}
+.block-h{margin:30px 0 8px;padding-top:10px;border-top:2px solid var(--ink)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart text{font:500 11px var(--mono);fill:var(--muted)}
+.chart .zero{stroke:var(--muted);stroke-dasharray:3 4}
+.chart .ln{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.chart .dot{fill:var(--accent);stroke:var(--ink);stroke-width:2}
+.impact{list-style:none;margin:0;padding:0}
+.impact li{padding:12px 2px;border-bottom:1px solid var(--rule)}
+.impact b{font-weight:600;display:block;line-height:1.3}
+.axis{position:relative;height:22px;margin:8px 6px 4px}
+.axis::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--ink)}
+.axis .link{position:absolute;top:50%;height:3px;margin-top:-1.5px;background:var(--accent);border-block:1px solid var(--ink)}
+.axis .pt{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--ink);background:var(--accent)}
+.axis .pt.abs{background:var(--sheet)}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin:8px 0}
+.legend span{display:flex;gap:6px;align-items:center}
+.legend i{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);background:var(--accent)}
+.legend i.abs{background:var(--sheet)}
+.imeta{display:flex;justify-content:space-between;font:500 12px var(--mono);color:var(--muted)}
+
+/* detail + risk */
+.dl{display:grid;grid-template-columns:auto 1fr;gap:0 16px;margin:0;border-top:2px solid var(--ink)}
+.dl dt,.dl dd{margin:0;padding:10px 0;border-bottom:1px solid var(--rule)}
+.dl dt{color:var(--muted);font-size:14px}
+.dl dd{text-align:right;font-weight:600}
+.snap{list-style:none;padding:0;margin:0}
+.snap li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.snap i{font-size:16px;margin-top:3px;flex:none}
+.back{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:8px 0;min-height:44px;font-weight:600}
+.confirm{border:1.5px solid var(--bear);border-radius:var(--r);padding:14px;margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.confirm p{margin:0}
+
+
+/* term diagrams */
+.dg{margin:0 0 14px}
+.dg svg{display:block;width:100%;height:auto;background:var(--field);border:1px solid var(--rule);border-radius:var(--r)}
+.dg text{font:500 10.5px var(--mono);fill:var(--ink);paint-order:stroke;stroke:var(--field);stroke-width:3px;stroke-linejoin:round}
+.dg .ln{stroke:var(--ink);stroke-width:1;stroke-dasharray:4 3}
+.dg .gh{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:3 3}
+.dg .zn{fill:var(--accent);opacity:.4}
+.dg .ring{fill:none;stroke:var(--ink);stroke-width:2}
+.dg .pl{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.dg .pd{fill:var(--accent);stroke:var(--ink);stroke-width:2}
+
+/* tabs + toast + footer */
+.tabs{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,640px);z-index:20;display:grid;grid-template-columns:repeat(4,1fr);background:var(--sheet);border-top:2px solid var(--ink);border-inline:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;border:0;background:transparent;color:var(--muted);font:600 12px/1 var(--body);position:relative}
+.tabs button i{font-size:22px}
+.tabs button[aria-current="page"]{color:var(--ink)}
+.tabs button[aria-current="page"]::before{content:"";position:absolute;top:-2px;left:18%;right:18%;height:5px;background:var(--accent);border:1.5px solid var(--ink);border-top:0;border-radius:0 0 3px 3px}
+.toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 32px),520px);z-index:30;background:var(--ink);color:var(--sheet);border-radius:var(--r);padding:8px 8px 8px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;animation:in .25s var(--ease)}
+.toast button{min-height:40px;padding:0 14px;border:1.5px solid var(--sheet);border-radius:var(--r);background:transparent;color:var(--sheet);font-weight:700}
+footer{margin-top:36px;padding-top:12px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted);max-width:60ch}
+
+@media (min-width:720px){.rows label{padding:15px 6px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page" id="page">
+  <header class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 26 22" aria-hidden="true"><rect x="1" y="12" width="6" height="9" fill="none" stroke="currentColor" stroke-width="2"/><rect x="10" y="7" width="6" height="14" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="1" width="6" height="20" fill="var(--accent)" stroke="currentColor" stroke-width="2"/></svg>
+      Candle Three
+    </div>
+    <button class="icon-btn" id="theme" aria-label="Theme: system"><i class="ph-bold ph-circle-half"></i></button>
+  </header>
+
+  <main>
+    <!-- CHECK -->
+    <section class="view" id="v-check" data-view="check">
+      <h1 tabindex="-1">Pre-trade checklist</h1>
+      <p class="lede">Tick every required box before you enter. If any item under “Skip the trade” is ticked, there is no trade today.</p>
+      <div id="guard"></div>
+      <div class="bar">
+        <div class="bar-top">
+          <div class="seg" role="group" aria-label="Daily bias">
+            <button id="b-bull" class="bull" aria-pressed="true">Bullish</button>
+            <button id="b-bear" class="bear" aria-pressed="false">Bearish</button>
+          </div>
+          <output class="status" id="status" aria-live="polite">0 / 0 required</output>
+        </div>
+        <div class="run">
+          <div class="staff" id="staff" aria-hidden="true"></div>
+          <button class="icon-btn" id="reset" aria-label="Reset checklist"><i class="ph-bold ph-arrow-counter-clockwise"></i></button>
+        </div>
+      </div>
+      <div id="steps"></div>
+      <div class="save">
+        <button class="btn block" id="save"><i class="ph-bold ph-pencil-simple-line"></i>Save trade</button>
+        <p class="sub" id="save-hint">Saves this setup to your log and clears the checklist for the next one.</p>
+      </div>
+    </section>
+
+    <!-- TERMS -->
+    <section class="view" id="v-terms" data-view="terms">
+      <h1 tabindex="-1">Terms</h1>
+      <p class="lede">Plain-language definitions with a schematic for each. Diagrams are drawn to explain the idea, not taken from real charts, and they flip with the bias you pick.</p>
+      <div class="seg" role="group" aria-label="Bias for examples">
+        <button id="t-bull" class="bull" aria-pressed="true">Bullish</button>
+        <button id="t-bear" class="bear" aria-pressed="false">Bearish</button>
+      </div>
+      <div class="fold" style="margin-top:22px"><div id="gloss"></div></div>
+      
+      <div class="fold">
+        <h2>Beyond the video</h2>
+        <p class="sub" style="margin-top:6px">General trading habits added to the model. They are not part of the video.</p>
+        <details><summary>Risk a fixed small slice</summary><p>Many traders use 0.5 to 1% of the account per trade. Size the position from the stop distance, not the other way round.</p></details>
+        <details><summary>Check the economic calendar</summary><p>High-impact news (CPI, NFP, FOMC) can blow through a perfect setup.</p></details>
+        <details><summary>Set a daily limit</summary><p>For example two trades or one full loss, then stop.</p></details>
+        <details><summary>Review with screenshots</summary><p>Capture the daily, 4H and 15m charts for each trade and note which checklist items were present. After 30 to 50 trades you will see which ones matter for you.</p></details>
+        <details><summary>Backtest first</summary><p>Run the model on replay, as in the video, before using real money.</p></details>
+      </div>
+    </section>
+
+    <!-- ENTRY -->
+    <section class="view" id="v-entry" data-view="entry">
+      <button class="back" id="entry-back"><i class="ph-bold ph-caret-left"></i>Back to checklist</button>
+      <h1 tabindex="-1">Log this setup</h1>
+      <p class="lede" id="entry-sum"></p>
+      <form id="entry-form" novalidate>
+        <div class="g2">
+          <div class="f"><label for="e-inst">Instrument</label><input type="text" id="e-inst" list="inst-list" autocomplete="off" autocapitalize="characters" required><datalist id="inst-list"></datalist></div>
+          <div class="f"><label for="e-out">Outcome</label>
+            <select id="e-out"><option>Open</option><option>Win</option><option>Loss</option><option>Breakeven</option><option>Skipped</option></select></div>
+        </div>
+        <div class="f"><label for="e-when">Date and time</label><input type="datetime-local" id="e-when"><span class="h" id="e-tz"></span></div>
+        <div class="g2">
+          <div class="f"><label for="e-ses">Session</label><select id="e-ses"><option>Asia</option><option>London</option><option>New York</option><option>Other</option></select></div>
+          <div class="f"><label for="e-type">Entry type</label><select id="e-type"><option>Reversal</option><option>Continuation</option><option>Retest</option><option>Positional</option></select></div>
+        </div>
+        <div class="g3">
+          <div class="f"><label for="e-entry">Entry</label><input type="number" step="any" inputmode="decimal" id="e-entry"></div>
+          <div class="f"><label for="e-stop">Stop</label><input type="number" step="any" inputmode="decimal" id="e-stop"></div>
+          <div class="f"><label for="e-target">Target</label><input type="number" step="any" inputmode="decimal" id="e-target"></div>
+        </div>
+        <div class="f"><label for="e-r">Result in R</label><input type="number" step="0.1" inputmode="decimal" id="e-r"><span class="h" id="e-rh">Calculated from prices when entry, stop and target are filled. Otherwise type it.</span></div>
+        <div class="f"><label for="e-notes">Notes</label><textarea id="e-notes"></textarea></div>
+        <div class="f"><label for="e-tags">Tags</label><input type="text" id="e-tags" placeholder="chased, news day, A+ setup"><span class="h">Separate with commas.</span></div>
+        <button class="btn block" type="submit"><i class="ph-bold ph-check"></i>Save to log</button>
+      </form>
+    </section>
+
+    <!-- LOG -->
+    <section class="view" id="v-log" data-view="log">
+      <h1 tabindex="-1">Trade log</h1>
+      <div id="log-sample"></div>
+      <div class="filters" id="filters-log"></div>
+      <div class="seg plain" role="group" aria-label="Log view" style="margin-bottom:16px">
+        <button id="lv-list" aria-pressed="true">List</button><button id="lv-cal" aria-pressed="false">Calendar</button>
+      </div>
+      <div id="log-body"></div>
+    </section>
+
+    <!-- DETAIL -->
+    <section class="view" id="v-detail" data-view="detail">
+      <button class="back" id="detail-back"><i class="ph-bold ph-caret-left"></i>Back to log</button>
+      <div id="detail-body"></div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" id="v-stats" data-view="stats">
+      <h1 tabindex="-1">Stats</h1>
+      <div id="stats-sample"></div>
+      <div class="filters" id="filters-stats"></div>
+      <div id="stats-body"></div>
+    </section>
+
+  </main>
+
+  <footer>Candle Three is a journaling and education tool. It does not place trades and does not give buy or sell signals.</footer>
+</div>
+
+<nav class="tabs" aria-label="Main">
+  <button data-go="check"><i class="ph-bold ph-list-checks"></i>Check</button>
+  <button data-go="log"><i class="ph-bold ph-notebook"></i>Log</button>
+  <button data-go="stats"><i class="ph-bold ph-chart-line-up"></i>Stats</button>
+  <button data-go="terms"><i class="ph-bold ph-book-open-text"></i>Terms</button>
+</nav>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+/* ---------- checklist content (ported from the prototype) ---------- */
+const STEPS = [
+  { id:"d", title:"Daily bias", tf:"1D + 1H", short:"1D", goal:"Anticipate a daily expansion candle.", items:[
+    ["dol","Draw on liquidity marked","Old {high|low}, range {high|low}, or HTF key level price is heading to, and not yet reached.",1],
+    ["c2","Daily candle 2 or candle 3 closure","C2: previous day's {low|high} swept and closed back {above|below} it. C3: next candle closed over C2's body.",1],
+    ["poi","Daily swing formed at a point of interest","Swept {lows|highs} and/or reacted from a daily FVG. Ideal if it also closed over the {down|up}-close series (protected swing).",0],
+    ["h1","1H CISD inside the swing candle","Hourly close through the series of candles that made the daily {low|high}. No CISD = no bias.",1],
+    ["which","Know which candle you're trading","Candle 3 after a C2. Candle 4 if C3 closed beyond C2's {high|low}; then price should hold C3's EQ.",1]
+  ]},
+  { id:"h4", title:"4H swing point", tf:"4H + 15m", short:"4H", goal:"Let the 4H build the daily {lower|upper} wick.", items:[
+    ["open","Price opens and trades {lower|higher} first","Ideal: forming the daily {low|high} early in the day.",0],
+    ["h4c2","4H candle 2 or candle 3 closure inside today's daily candle","Sweep of a 4H {low|high} and/or tap into a 4H FVG.",1],
+    ["m15","15m CISD confirms the 4H swing","If you only see failure swings, wait for the next candle.",1]
+  ]},
+  { id:"e", title:"15m entry", tf:"15m", short:"15m", goal:"Trade a continuation off a new protected swing.", items:[
+    ["ps","New 15m protected swing","Sweep a {low|high} and/or tap a 15m FVG, then close {over|under} the {down|up}-close candles.",1],
+    ["chase","Not chasing","If price already took the 4H {high|low} this candle, wait for a retracement or consolidation.",1],
+    ["type","Entry type chosen","Reversal (wider stop), continuation (tight stop), retest of the continuation, or positional entry near the daily open.",1],
+    ["smt","SMT with a correlated market","Optional extra confirmation.",0],
+    ["sess","Inside a killzone / session open","The video waits for the New York session after a retracement.",0]
+  ]},
+  { id:"r", title:"Risk & management", tf:"Plan", short:"Risk", goal:"Know the exit before the entry.", items:[
+    ["sl","Stop beyond the protected swing {low|high}","",1],
+    ["rr","At least 2R available to the first target","",1],
+    ["run","Runner plan set","Hold part toward the HTF draw or the daily close if you entered near the open.",0]
+  ]},
+  { id:"x", title:"Skip the trade if…", tf:"No-go", goal:"Any one of these cancels the setup.", stop:true, items:[
+    ["x1","Trade goes against the daily candle direction","",2],
+    ["x2","No CISD on the lower timeframe","",2],
+    ["x3","No 4H swing point today (only failure swings)","",2],
+    ["x4","Draw on liquidity already hit","",2],
+    ["x5","Stop can't fit inside your risk for 2R","",2]
+  ]}
+];
+const GLOSS = [
+  ["Candle 2 closure (C2)","A candle sweeps the previous candle's {low|high} and closes back {above|below} it. This signals a reversal, so you anticipate candle 3 to expand {up|down}."],
+  ["Candle 3 closure (C3)","Candle 2 swept but failed to close back inside. The next candle then closes over candle 2's body, engulfing it. You then look to trade candle 4."],
+  ["Change in state of delivery (CISD)","Find the series of {down|up}-close candles that made the {low|high}. When price closes {above|below} the opening level of that series, the swing is confirmed."],
+  ["Protected swing","A {low|high} that sweeps liquidity and/or taps a fair value gap, followed by a CISD. Your stop goes beyond it; if price breaks it, the idea is wrong."],
+  ["Fair value gap (FVG)","A three-candle gap where the wicks of candles 1 and 3 don't overlap, leaving an imbalance price often returns to."],
+  ["SMT divergence","Two correlated markets (e.g. ES and NQ, or BTC and ETH) disagree: one makes a new {low|high} and the other doesn't. It adds confidence to the swing."],
+  ["EQ","The 50% level of a candle's range. In a candle 4 continuation, price should hold the {upper|lower} half of candle 3."],
+  ["Draw on liquidity","The higher-timeframe target price is likely heading to: an old {high|low}, range {high|low}, or unfilled gap."],
+  ["Failure swing","Price sweeps a level but never confirms with a C2/C3 closure and CISD. It's not a tradeable swing point."]
+];
+const ITEMS = {}; STEPS.forEach(s => s.items.forEach(([k,t,d,r]) => ITEMS[k] = {t,d,r,step:s.id}));
+const REQ = Object.keys(ITEMS).filter(k => ITEMS[k].r === 1);
+const NOGO = Object.keys(ITEMS).filter(k => ITEMS[k].r === 2);
+
+/* ---------- state ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const jget = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } };
+const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const sw = (s, b = bias) => s.replace(/\{([^|}]*)\|([^}]*)\}/g, (_,a,c) => b === "bull" ? a : c);
+
+let bias = "bull", ticks = {};
+{ const s = jget("c3-check", {}); ticks = s.state || {}; bias = s.bias || "bull"; }
+const settings = Object.assign({ instruments:["NQ","ES","BTCUSD","EURUSD"], maxTrades:2, maxLossR:2, theme:"system" }, jget("c3-settings", {}));
+let trades = jget("c3-trades", null);
+if (!trades) { trades = seedTrades(); jset("c3-trades", trades); }
+const saveTrades = () => jset("c3-trades", trades);
+const saveCheck = () => jset("c3-check", { state:ticks, bias });
+const filters = { range:"all", inst:"All", outcome:"All" };
+let logMode = "list", cal = (() => { const n = new Date(); return { y:n.getFullYear(), m:n.getMonth() }; })();
+let openTrade = null, pendingUndo = null, toastTimer = null, statBreak = "session";
+
+/* ---------- helpers ---------- */
+function statusOf(t){
+  if (NOGO.some(k => t[k])) return "no";
+  return REQ.every(k => t[k]) ? "valid" : "inc";
+}
+const taken = t => t.outcome === "Win" || t.outcome === "Loss" || t.outcome === "Breakeven";
+const fmtR = r => (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toFixed(1) + "R";
+const cls = r => r > 0 ? "pos" : r < 0 ? "neg" : "";
+const dayKey = ms => { const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const fmtDay = ms => new Intl.DateTimeFormat(undefined, { weekday:"short", day:"numeric", month:"short" }).format(ms);
+const fmtTime = ms => new Intl.DateTimeFormat(undefined, { hour:"2-digit", minute:"2-digit", hour12:false }).format(ms);
+function sessionFor(ms){ const h = new Date(ms).getUTCHours(); return h < 7 ? "Asia" : h < 12 ? "London" : h < 21 ? "New York" : "Other"; }
+function localInput(ms){ const d = new Date(ms - new Date(ms).getTimezoneOffset()*60000); return d.toISOString().slice(0,16); }
+const statusPill = s => s === "valid" ? '<span class="pill valid">Valid</span>' : s === "no" ? '<span class="pill no">No trade</span>' : '<span class="pill inc">Incomplete</span>';
+
+function seedTrades(){
+  let s = 20260611; const rnd = () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const out = [], insts = ["NQ","NQ","ES","ES","BTCUSD","EURUSD"], types = ["Reversal","Continuation","Continuation","Retest","Positional"];
+  const base = new Date(); base.setHours(0,0,0,0);
+  for (let off = 70; off >= 1; off--) {
+    const day = new Date(base.getTime() - off*864e5); const wd = day.getDay();
+    if (wd === 0 || wd === 6) continue;
+    const n = rnd() < .42 ? 0 : rnd() < .8 ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      const q = rnd(), tk = {};
+      REQ.forEach(k => { if (rnd() < .5 + .5*q) tk[k] = true; });
+      ["poi","open","smt","sess","run"].forEach(k => { if (rnd() < .5) tk[k] = true; });
+      if (rnd() < .08) tk[NOGO[Math.floor(rnd()*NOGO.length)]] = true;
+      const st = statusOf(tk), reqFrac = REQ.filter(k => tk[k]).length / REQ.length;
+      const winP = .26 + .5*reqFrac*reqFrac + (tk.h1 ? .06 : 0) + (tk.h4c2 ? .06 : 0) - (st === "no" ? .25 : 0);
+      let outc, r;
+      if ((st === "no" && rnd() < .7) || (st === "inc" && rnd() < .22)) { outc = "Skipped"; r = 0; }
+      else { const u = rnd(); if (u < winP) { outc = "Win"; r = Math.round((1.8 + rnd()*1.6)*10)/10; } else if (u < winP + .1) { outc = "Breakeven"; r = 0; } else { outc = "Loss"; r = -1; } }
+      const hour = 7 + Math.floor(rnd()*9), min = Math.floor(rnd()*4)*15;
+      const ts = day.getTime() + hour*36e5 + min*6e4;
+      out.push({ id:"s" + out.length, ts, inst:insts[Math.floor(rnd()*insts.length)], dir:rnd() < .55 ? "bull" : "bear",
+        session:sessionFor(ts), entryType:types[Math.floor(rnd()*types.length)], ticks:tk, status:st, outcome:outc, r,
+        notes:"", tags: st === "valid" && q > .8 ? ["A+ setup"] : [], sample:true });
+    }
+  }
+  return out;
+}
+
+/* ---------- navigation ---------- */
+let current = "check";
+function go(name, push = true){
+  current = name;
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.dataset.view === name));
+  const tab = name === "entry" ? "check" : name === "detail" ? "log" : name;
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.go === tab ? "page" : "false"));
+  if (name === "check") renderCheck(); if (name === "log") renderLog(); if (name === "stats") renderStats(); if (name === "terms") renderTerms();
+  window.scrollTo(0, 0);
+  if (push) history.replaceState(null, "", "#" + name);
+  document.querySelector(".view.on h1")?.focus({ preventScroll:true });
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => go(b.dataset.go));
+
+
+/* ---------- term diagrams (schematic, drawn from candle data in bullish orientation) ---------- */
+const DIAG = [
+  { c:[[70,55,72,52],[56,62,64,40],[62,86,88,60,1]], l:[[52,0,2.5,"C1 {low|high}",0,"start"]], n:[[1,28,"C2 sweeps, closes back {above|below}","middle"],[2,96,"C3 expands","middle"]] },
+  { c:[[70,55,72,52],[56,50,58,38],[50,74,76,48],[74,90,92,72,1]], z:[[50,56,1,2.6,""]], l:[[52,0,1,"C1 {low|high}",0,"start","b"]], n:[[1,26,"C2: swept, no close back","middle"],[1.7,100,"C3 closes over C2 body","middle"],[3,98,"C4","middle"]] },
+  { c:[[80,72,82,70],[72,62,73,60],[62,52,63,48],[52,60,62,50],[60,86,88,58]], l:[[80,0,5,"Open of {down|up}-close series",0,"start"]], n:[[2,36,"Series {low|high}","middle"],[4,96,"Close {above|below} = CISD","end"]] },
+  { c:[[70,55,72,52],[55,52,56,50],[52,60,62,44],[60,80,82,58]], l:[[50,0,2.2,"Equal {lows|highs}",0,"start","b"],[40,2,3.6,"Stop",3.6,"end"]], d:[[2,44]], n:[[2,22,"Protected {low|high}","middle"]] },
+  { c:[[40,50,52,38],[50,78,80,49],[70,84,86,60]], z:[[52,60,0.5,2.5,""]], n:[[0,26,"1","middle"],[1,36,"2","middle"],[2,46,"3","middle"],[1.5,96,"Wicks of 1 and 3 don't overlap","middle"],[0.55,56,"Gap","start"]] },
+  { smt:1 },
+  { c:[[40,82,86,36],[82,76,84,64]], l:[[61,0,2,"EQ: 50% of C3 range",0,"end","b"]], n:[[1,98,"Holds {upper|lower} half","middle"]] },
+  { c:[[30,40,42,28],[40,52,54,38],[52,62,64,50],[62,70,72,60],[70,92,94,68,1]], l:[[90,0,5,"Old {high|low}: the draw",0,"start"]], n:[[4,50,"Target","middle"]] },
+  { c:[[70,56,72,54],[56,48,57,44],[48,42,50,38]], l:[[52,0,3,"Level swept",0,"start","b"]], n:[[2,24,"No close back, no CISD","end"]] }
+];
+function diagram(i){
+  const d = DIAG[i]; if (!d) return "";
+  const W = 300, H = 176, top = 18, bot = 18, flip = bias === "bear";
+  const y = v => flip ? top + v*(H-top-bot)/100 : H - bot - v*(H-top-bot)/100;
+  let g = "";
+  if (d.smt) {
+    const a = [[.08,62],[.3,40],[.52,56],[.86,26]], b = [[.08,62],[.3,40],[.52,56],[.86,46]];
+    const panel = (pts, ox, label) => { const px = f => ox + 10 + f*118;
+      return `<polyline class="pl" points="${pts.map(([f,v]) => px(f).toFixed(1) + "," + y(flip ? 100 - v : v).toFixed(1)).join(" ")}"/>` +
+        pts.filter((_,k) => k === 1 || k === 3).map(([f,v]) => `<circle class="pd" cx="${px(f)}" cy="${y(flip ? 100 - v : v)}" r="4.5"/>`).join("") +
+        `<text x="${ox + 70}" y="${flip ? 12 : H - 4}" text-anchor="middle">${label}</text>`; };
+    g = panel(a, 6, "NQ: new {low|high}".replace(/\{([^|}]*)\|([^}]*)\}/, (_,x,z) => flip ? z : x)) + panel(b, 156, "ES: holds");
+  } else {
+    const n = d.c.length, slot = (W - 28) / n, X = i => 14 + slot*(i + .5);
+    (d.z || []).forEach(([v1,v2,i1,i2,lb]) => { const ya = y(v1), yb = y(v2);
+      g += `<rect class="zn" x="${X(i1)}" y="${Math.min(ya,yb)}" width="${X(i2) - X(i1)}" height="${Math.abs(ya - yb)}"/>`;
+      if (lb) g += `<text x="${X(i2) + 4}" y="${(ya + yb)/2 + 4}">${sw(lb)}</text>`; });
+    (d.l || []).forEach(([v,i1,i2,lb,lx,an,pos]) => { const x1 = i1 === 0 ? 8 : X(i1 - .5), x2 = Math.min(W - 6, X(i2 - .5));
+      g += `<line class="ln" x1="${x1}" x2="${x2}" y1="${y(v)}" y2="${y(v)}"/>`;
+      if (lb) g += `<text x="${an === "end" ? x2 - 2 : x1 + 2}" text-anchor="${an}" y="${y(v) + (pos === "b" ? (flip ? -4 : 12) : (flip ? 12 : -4))}">${sw(lb)}</text>`; });
+    d.c.forEach(([o,c,h,l,ghost], k) => { const x = X(k), yo = y(o), yc = y(c), up = yc < yo, col = ghost ? "var(--muted)" : up ? "var(--bull)" : "var(--bear)";
+      if (ghost) g += `<line x1="${x}" x2="${x}" y1="${y(h)}" y2="${y(l)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 3"/><rect class="gh" x="${x - 8}" y="${Math.min(yo,yc)}" width="16" height="${Math.max(2, Math.abs(yo - yc))}"/>`;
+      else g += `<line x1="${x}" x2="${x}" y1="${y(h)}" y2="${y(l)}" stroke="${col}" stroke-width="2"/><rect x="${x - 8}" y="${Math.min(yo,yc)}" width="16" height="${Math.max(3, Math.abs(yo - yc))}" fill="${col}"/>`; });
+    (d.d || []).forEach(([i,v]) => { g += `<circle class="ring" cx="${X(i)}" cy="${y(v)}" r="7"/>`; });
+    (d.n || []).forEach(([i,v,tx,an]) => { g += `<text x="${X(i)}" y="${y(v) + 4}" text-anchor="${an}">${sw(tx)}</text>`; });
+  }
+  return `<figure class="dg"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(GLOSS[i][0])}, schematic">${g}</svg></figure>`;
+}
+
+/* ---------- TERMS ---------- */
+function renderTerms(){
+  const open = new Set([...document.querySelectorAll("#gloss details[open] summary")].map(x => x.textContent));
+  $("gloss").innerHTML = GLOSS.map(([t,p], i) => `<details${open.has(t) ? " open" : ""}><summary>${esc(t)}</summary><p>${esc(sw(p))}</p>${diagram(i)}</details>`).join("");
+  $("t-bull").setAttribute("aria-pressed", bias === "bull"); $("t-bear").setAttribute("aria-pressed", bias === "bear");
+}
+$("t-bull").onclick = () => { bias = "bull"; saveCheck(); renderTerms(); };
+$("t-bear").onclick = () => { bias = "bear"; saveCheck(); renderTerms(); };
+
+/* ---------- theme ---------- */
+function applyTheme(){
+  const t = settings.theme, root = document.documentElement;
+  if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", t);
+  const icon = { system:"ph-circle-half", light:"ph-sun", dark:"ph-moon" }[t];
+  $("theme").innerHTML = '<i class="ph-bold ' + icon + '"></i>';
+  $("theme").setAttribute("aria-label", "Theme: " + t + ". Tap to change.");
+}
+$("theme").onclick = () => { settings.theme = { system:"light", light:"dark", dark:"system" }[settings.theme]; jset("c3-settings", settings); applyTheme(); };
+
+/* ---------- CHECK ---------- */
+function renderCheck(){
+  $("steps").innerHTML = STEPS.map(st => `
+    <section class="leg-sec${st.stop ? " stop" : ""}">
+      <div class="leg-head"><h2>${esc(sw(st.title))}</h2><span class="tf">${esc(st.tf)}</span><span class="count num" id="c-${st.id}"></span></div>
+      <p class="sub">${esc(sw(st.goal))}</p>
+      <ul class="rows">${st.items.map(([k,t,d,r]) => `
+        <li><label><input type="checkbox" data-k="${k}" ${ticks[k] ? "checked" : ""}>
+          <span class="t"><b>${esc(sw(t))}</b>${d ? `<small>${esc(sw(d))}</small>` : ""}</span>
+          <span class="lvl ${r === 1 ? "req" : ""}">${r === 1 ? "Req" : r === 0 ? "Opt" : ""}</span></label></li>`).join("")}
+      </ul>
+    </section>`).join("");
+  const legs = STEPS.filter(s => !s.stop);
+  $("staff").innerHTML = legs.map(st => {
+    const n = st.items.filter(i => i[3] === 1).length; if (!n) return "";
+    return `<div class="leg" style="flex:${n}"><div class="cells">${st.items.filter(i => i[3] === 1).map((i,ix) => `<i data-k="${i[0]}" style="--i:${ix}"></i>`).join("")}</div><span>${st.short}</span></div>`;
+  }).join("");
+  $("b-bull").setAttribute("aria-pressed", bias === "bull"); $("b-bear").setAttribute("aria-pressed", bias === "bear");
+  updateCheck(); renderGuard();
+}
+function updateCheck(){
+  let done = 0, stops = 0;
+  STEPS.forEach(st => {
+    let n = 0, c = 0;
+    st.items.forEach(([k,,,r]) => { if (r === 1 && ticks[k]) done++; if (r === 2 && ticks[k]) stops++; if (r !== 2) { n++; if (ticks[k]) c++; } });
+    $("c-" + st.id).textContent = st.stop ? (stops ? stops + " ticked" : "") : c + "/" + n;
+  });
+  const valid = !stops && done === REQ.length, s = $("status");
+  s.className = "status" + (stops ? " stop" : valid ? " go" : "");
+  s.textContent = stops ? "No trade" : valid ? "Setup valid" : done + " / " + REQ.length + " required";
+  const staff = $("staff"); staff.className = "staff" + (stops ? " void" : valid ? " closed" : "");
+  staff.querySelectorAll("i").forEach(i => i.classList.toggle("on", !!ticks[i.dataset.k]));
+}
+$("steps").addEventListener("change", e => { const k = e.target.dataset.k; if (!k) return; ticks[k] = e.target.checked; saveCheck(); updateCheck(); });
+$("b-bull").onclick = () => { bias = "bull"; saveCheck(); renderCheck(); };
+$("b-bear").onclick = () => { bias = "bear"; saveCheck(); renderCheck(); };
+$("reset").onclick = () => { ticks = {}; saveCheck(); renderCheck(); };
+function todaysTrades(){ const k = dayKey(Date.now()); return trades.filter(t => dayKey(t.ts) === k && taken(t)); }
+function renderGuard(){
+  const td = todaysTrades(), lossR = td.reduce((a,t) => a + Math.min(0, t.r || 0), 0), msgs = [];
+  if (td.length >= settings.maxTrades) msgs.push("You've hit " + td.length + " trade" + (td.length === 1 ? "" : "s") + " today. Your limit is " + settings.maxTrades + ".");
+  if (-lossR >= settings.maxLossR) msgs.push("Today's loss is " + fmtR(lossR) + ", at your " + settings.maxLossR + "R daily limit.");
+  $("guard").innerHTML = msgs.map(m => `<div class="note" role="status"><i class="ph-bold ph-warning"></i><span>${esc(m)} This is a warning, not a block.</span></div>`).join("");
+}
+
+/* ---------- ENTRY (save trade) ---------- */
+$("save").onclick = () => {
+  const st = statusOf(ticks), now = Date.now();
+  $("entry-sum").textContent = (bias === "bull" ? "Bullish" : "Bearish") + " setup. " + (st === "valid" ? "All required items ticked." : st === "no" ? "A no-go item is ticked." : REQ.filter(k => ticks[k]).length + " of " + REQ.length + " required items ticked.");
+  $("inst-list").innerHTML = settings.instruments.map(i => `<option value="${esc(i)}">`).join("");
+  $("e-inst").value = settings.instruments[0];
+  $("e-when").value = localInput(now); $("e-ses").value = sessionFor(now);
+  $("e-tz").textContent = "Your timezone: " + Intl.DateTimeFormat().resolvedOptions().timeZone + ". Stored as UTC.";
+  $("e-out").value = st === "no" ? "Skipped" : "Open";
+  ["e-entry","e-stop","e-target","e-r","e-notes","e-tags"].forEach(id => $(id).value = "");
+  go("entry");
+};
+$("entry-back").onclick = () => go("check");
+function plannedR(){ const e = +$("e-entry").value, s = +$("e-stop").value, t = +$("e-target").value; return e && s && t && e !== s ? Math.abs(t - e) / Math.abs(e - s) : null; }
+["e-entry","e-stop","e-target","e-out"].forEach(id => $(id).addEventListener("input", () => {
+  const p = plannedR(), o = $("e-out").value;
+  if (o === "Win" && p) $("e-r").value = p.toFixed(1); else if (o === "Loss") $("e-r").value = "-1"; else if (o === "Breakeven" || o === "Skipped") $("e-r").value = "0";
+}));
+$("entry-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const inst = $("e-inst").value.trim().toUpperCase(); if (!inst) { $("e-inst").focus(); return; }
+  const ts = new Date($("e-when").value).getTime() || Date.now();
+  const num = id => $(id).value === "" ? null : +$(id).value;
+  const t = { id:"u" + Date.now(), ts, inst, dir:bias, session:$("e-ses").value, entryType:$("e-type").value, ticks:{ ...ticks }, status:statusOf(ticks),
+    outcome:$("e-out").value, r:num("e-r") ?? 0, entry:num("e-entry"), stop:num("e-stop"), target:num("e-target"), notes:$("e-notes").value.trim(),
+    tags:$("e-tags").value.split(",").map(s => s.trim()).filter(Boolean), sample:false };
+  if (!settings.instruments.includes(inst)) { settings.instruments.push(inst); jset("c3-settings", settings); }
+  pendingUndo = { id:t.id, ticks:{ ...ticks }, bias };
+  trades.push(t); saveTrades(); ticks = {}; saveCheck();
+  go("log"); toast("Trade saved. Checklist cleared.", "Undo", undoSave);
+});
+function undoSave(){
+  if (!pendingUndo) return;
+  trades = trades.filter(t => t.id !== pendingUndo.id); saveTrades();
+  ticks = pendingUndo.ticks; bias = pendingUndo.bias; saveCheck(); pendingUndo = null; go("check");
+}
+function toast(msg, label, fn){
+  const el = $("toast"); clearTimeout(toastTimer);
+  el.innerHTML = `<span>${esc(msg)}</span>${label ? `<button type="button">${esc(label)}</button>` : ""}`; el.hidden = false;
+  el.querySelector("button")?.addEventListener("click", () => { el.hidden = true; fn(); });
+  toastTimer = setTimeout(() => { el.hidden = true; }, 7000);
+}
+
+/* ---------- filters ---------- */
+function filtered(){
+  const cut = filters.range === "all" ? 0 : Date.now() - (+filters.range) * 864e5;
+  return trades.filter(t => t.ts >= cut && (filters.inst === "All" || t.inst === filters.inst) && (filters.outcome === "All" || t.outcome === filters.outcome))
+    .sort((a,b) => b.ts - a.ts);
+}
+function filterBar(target, withOutcome){
+  const insts = ["All", ...new Set(trades.map(t => t.inst))];
+  const ranges = [["30","30 days"],["90","90 days"],["all","All time"]];
+  const outs = ["All","Win","Loss","Breakeven","Skipped","Open"];
+  $(target).innerHTML = ranges.map(([v,l]) => `<button class="chip" data-f="range" data-v="${v}" aria-pressed="${filters.range === v}">${l}</button>`).join("") +
+    `<label class="sr" for="${target}-i">Instrument</label><select id="${target}-i" data-f="inst">${insts.map(i => `<option value="${esc(i)}" ${i === filters.inst ? "selected" : ""}>${i === "All" ? "All instruments" : esc(i)}</option>`).join("")}</select>` +
+    (withOutcome ? `<label class="sr" for="${target}-o">Outcome</label><select id="${target}-o" data-f="outcome">${outs.map(i => `<option value="${i}" ${i === filters.outcome ? "selected" : ""}>${i === "All" ? "All outcomes" : i}</option>`).join("")}</select>` : "");
+}
+document.addEventListener("click", e => { const b = e.target.closest(".chip[data-f]"); if (b) { filters[b.dataset.f] = b.dataset.v; current === "log" ? renderLog() : renderStats(); } });
+document.addEventListener("change", e => { const s = e.target.closest("select[data-f]"); if (s) { filters[s.dataset.f] = s.value; current === "log" ? renderLog() : renderStats(); } });
+function sampleBanner(target){
+  const has = trades.some(t => t.sample);
+  $(target).innerHTML = has ? `<div class="sample"><span>Sample data, generated for this preview. It is not a real record.</span><button type="button" data-clear>Clear</button></div>` : "";
+  $(target).querySelector("[data-clear]")?.addEventListener("click", () => { trades = trades.filter(t => !t.sample); saveTrades(); current === "log" ? renderLog() : renderStats(); });
+}
+
+/* ---------- LOG ---------- */
+$("lv-list").onclick = () => { logMode = "list"; renderLog(); };
+$("lv-cal").onclick = () => { logMode = "cal"; renderLog(); };
+function renderLog(){
+  sampleBanner("log-sample"); filterBar("filters-log", true);
+  $("lv-list").setAttribute("aria-pressed", logMode === "list"); $("lv-cal").setAttribute("aria-pressed", logMode === "cal");
+  const list = filtered(), body = $("log-body");
+  if (!trades.length) { body.innerHTML = `<div class="empty"><p>No trades logged yet. Tick a setup on Check, then save it. Skipped trades count too.</p><button class="btn" data-go-check>Open checklist</button></div>`; body.querySelector("[data-go-check]").onclick = () => go("check"); return; }
+  if (!list.length) { body.innerHTML = `<div class="empty"><p>No trades match these filters.</p><button class="btn ghost" data-reset>Clear filters</button></div>`; body.querySelector("[data-reset]").onclick = () => { Object.assign(filters, { range:"all", inst:"All", outcome:"All" }); renderLog(); }; return; }
+  if (logMode === "cal") return renderCal(list);
+  const groups = []; list.forEach(t => { const k = dayKey(t.ts); let g = groups[groups.length - 1]; if (!g || g.k !== k) groups.push(g = { k, ts:t.ts, items:[] }); g.items.push(t); });
+  body.innerHTML = groups.map(g => {
+    const sum = g.items.filter(taken).reduce((a,t) => a + t.r, 0);
+    return `<div class="day"><h3><span>${esc(fmtDay(g.ts))}</span><span class="num ${cls(sum)}">${fmtR(sum)}</span></h3>${g.items.map(t => `
+      <button class="trade" data-id="${t.id}">
+        <span class="tm">${fmtTime(t.ts)}</span>
+        <span><span class="i">${esc(t.inst)} <i class="ph-bold ${t.dir === "bull" ? "ph-arrow-up-right bullc" : "ph-arrow-down-right bearc"}" aria-hidden="true"></i><span class="sr">${t.dir === "bull" ? "Bullish" : "Bearish"}</span></span>
+          <span class="m">${statusPill(t.status)}${esc(t.session)}, ${esc(t.entryType)}</span></span>
+        <span class="r ${cls(t.r)}">${taken(t) ? fmtR(t.r) : "-"}<span class="o">${t.outcome}</span></span>
+      </button>`).join("")}</div>`;
+  }).join("");
+  body.querySelectorAll(".trade").forEach(b => b.onclick = () => { openTrade = b.dataset.id; renderDetail(); go("detail"); });
+}
+function renderCal(list){
+  const map = {}; list.filter(taken).forEach(t => { const k = dayKey(t.ts); map[k] = (map[k] || 0) + t.r; });
+  const skipped = {}; list.filter(t => t.outcome === "Skipped").forEach(t => skipped[dayKey(t.ts)] = 1);
+  const first = new Date(cal.y, cal.m, 1), days = new Date(cal.y, cal.m + 1, 0).getDate(), lead = (first.getDay() + 6) % 7, todayK = dayKey(Date.now());
+  const maxAbs = Math.max(1, ...Object.entries(map).filter(([k]) => k.startsWith(cal.y + "-" + String(cal.m+1).padStart(2,"0"))).map(([,v]) => Math.abs(v)));
+  let cells = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="dow">${d}</div>`).join("") + '<div class="d out"></div>'.repeat(lead);
+  for (let d = 1; d <= days; d++) {
+    const k = cal.y + "-" + String(cal.m+1).padStart(2,"0") + "-" + String(d).padStart(2,"0"), v = map[k];
+    const c = v === undefined ? "" : v > 0 ? "p" : v < 0 ? "n" : "";
+    cells += `<div class="d ${c}${k === todayK ? " today" : ""}" style="--k:${v ? Math.min(1, Math.abs(v)/maxAbs) : 0}" aria-label="${k}${v !== undefined ? ", " + fmtR(v) : skipped[k] ? ", skipped" : ""}"><b>${d}</b><span class="v ${cls(v || 0)}">${v !== undefined ? fmtR(v).replace("R","") : skipped[k] ? "skip" : ""}</span></div>`;
+  }
+  const label = new Intl.DateTimeFormat(undefined, { month:"long", year:"numeric" }).format(first);
+  $("log-body").innerHTML = `<div class="cal-head"><button class="icon-btn" id="cal-p" aria-label="Previous month"><i class="ph-bold ph-caret-left"></i></button><h2>${label}</h2><button class="icon-btn" id="cal-n" aria-label="Next month"><i class="ph-bold ph-caret-right"></i></button></div><div class="cal">${cells}</div><p class="sub" style="margin-top:12px">Each day shows total R. Green is a net win, red a net loss.</p>`;
+  $("cal-p").onclick = () => { cal.m--; if (cal.m < 0) { cal.m = 11; cal.y--; } renderLog(); };
+  $("cal-n").onclick = () => { cal.m++; if (cal.m > 11) { cal.m = 0; cal.y++; } renderLog(); };
+}
+
+/* ---------- DETAIL ---------- */
+$("detail-back").onclick = () => go("log");
+function renderDetail(){
+  const t = trades.find(x => x.id === openTrade); if (!t) return;
+  const snapKeys = [...REQ, ...NOGO, ...Object.keys(ITEMS).filter(k => ITEMS[k].r === 0)];
+  const row = (k, v) => v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : "";
+  $("detail-body").innerHTML = `
+    <h1 tabindex="-1">${esc(t.inst)} <span class="${t.dir === "bull" ? "bullc" : "bearc"}">${t.dir === "bull" ? "Long" : "Short"}</span></h1>
+    <p class="lede">${new Intl.DateTimeFormat(undefined, { dateStyle:"full", timeStyle:"short" }).format(t.ts)}${t.sample ? ". Sample trade." : ""}</p>
+    <dl class="dl">
+      <dt>Setup</dt><dd>${statusPill(t.status)}</dd>
+      <dt>Outcome</dt><dd>${t.outcome}</dd>
+      <dt>Result</dt><dd class="num ${cls(t.r)}">${taken(t) ? fmtR(t.r) : "-"}</dd>
+      ${row("Session", t.session)}${row("Entry type", t.entryType)}
+      ${t.entry != null ? row("Entry", t.entry) : ""}${t.stop != null ? row("Stop", t.stop) : ""}${t.target != null ? row("Target", t.target) : ""}
+      ${t.tags && t.tags.length ? row("Tags", t.tags.join(", ")) : ""}
+    </dl>
+    ${t.notes ? `<h2 class="block-h">Notes</h2><p style="margin:0">${esc(t.notes)}</p>` : ""}
+    <h2 class="block-h">Checklist at the time</h2>
+    <ul class="snap">${snapKeys.map(k => { const on = !!t.ticks[k], bad = ITEMS[k].r === 2;
+      return `<li><i class="ph-bold ${on ? (bad ? "ph-x-circle bearc" : "ph-check-circle bullc") : "ph-circle mutedc"}"></i><span class="${on ? "" : "mutedc"}">${esc(sw(ITEMS[k].t, t.dir))}${on && bad ? " (present)" : ""}</span></li>`; }).join("")}</ul>
+    <div id="del-zone" style="margin-top:22px"><button class="btn ghost block" id="del"><i class="ph-bold ph-trash"></i>Delete trade</button></div>`;
+  $("del").onclick = () => {
+    $("del-zone").innerHTML = `<div class="confirm" role="alertdialog" aria-label="Confirm delete"><p>Delete this trade? This cannot be undone.</p><div class="g2"><button class="btn danger" id="del-y">Delete</button><button class="btn ghost" id="del-n">Keep</button></div></div>`;
+    $("del-y").focus();
+    $("del-y").onclick = () => { trades = trades.filter(x => x.id !== t.id); saveTrades(); go("log"); toast("Trade deleted."); };
+    $("del-n").onclick = () => renderDetail();
+  };
+}
+
+/* ---------- STATS ---------- */
+function agg(list){
+  const tk = list.filter(taken), n = tk.length, w = tk.filter(t => t.outcome === "Win"), l = tk.filter(t => t.outcome === "Loss");
+  const tot = tk.reduce((a,t) => a + t.r, 0), aw = w.length ? w.reduce((a,t) => a + t.r, 0)/w.length : 0, al = l.length ? Math.abs(l.reduce((a,t) => a + t.r, 0)/l.length) : 0;
+  return { n, wins:w.length, wr:n ? w.length/n : 0, avg:n ? tot/n : 0, tot, aw, al, exp:n ? (w.length/n)*aw - (l.length/n)*al : 0 };
+}
+$("stats-body").addEventListener("click", e => { const b = e.target.closest("[data-break]"); if (b) { statBreak = b.dataset.break; renderStats(); } });
+function renderStats(){
+  sampleBanner("stats-sample"); filterBar("filters-stats", false);
+  const list = filtered(), tk = list.filter(taken), a = agg(list), body = $("stats-body");
+  if (tk.length < 3) { body.innerHTML = `<div class="empty"><p>${trades.length ? "Not enough taken trades for these filters yet. Stats appear after three." : "Stats appear once you have logged a few trades."}</p><button class="btn" id="to-check">Open checklist</button></div>`; $("to-check").onclick = () => go("check"); return; }
+  const chrono = [...tk].sort((a,b) => a.ts - b.ts); let streak = 0, kind = "";
+  for (let i = chrono.length - 1; i >= 0; i--) { const o = chrono[i].outcome; if (o === "Breakeven") continue; if (!kind) kind = o; if (o === kind) streak++; else break; }
+  const best = Math.max(...tk.map(t => t.r)), worst = Math.min(...tk.map(t => t.r));
+  const skipped = list.filter(t => t.outcome === "Skipped").length;
+  body.innerHTML = `
+    <ul class="tally">
+      <li><span>Trades taken</span><span class="num">${a.n}</span></li>
+      <li><span>Skipped</span><span class="num">${skipped}</span></li>
+      <li><span>Win rate</span><span class="num">${Math.round(a.wr*100)}%</span></li>
+      <li><span>Average R</span><span class="num ${cls(a.avg)}">${fmtR(a.avg)}</span></li>
+      <li><span>Total R</span><span class="num ${cls(a.tot)}">${fmtR(a.tot)}</span></li>
+      <li><span>Expectancy per trade</span><span class="num ${cls(a.exp)}">${fmtR(a.exp)}</span></li>
+      <li><span>Largest win and loss</span><span class="num"><span class="pos">${fmtR(best)}</span> / <span class="neg">${fmtR(worst)}</span></span></li>
+      <li><span>Current streak</span><span class="num">${streak} ${kind === "Win" ? "wins" : "losses"}</span></li>
+    </ul>
+    <h2 class="block-h">Equity curve in R</h2>${equity(chrono)}
+    <h2 class="block-h">Breakdown</h2>
+    <div class="filters">${["session","weekday","direction","entryType","inst"].map(k => `<button class="chip" data-break="${k}" aria-pressed="${statBreak === k}">${{session:"Session",weekday:"Weekday",direction:"Direction",entryType:"Entry type",inst:"Instrument"}[k]}</button>`).join("")}</div>
+    ${breakdown(tk)}
+    <h2 class="block-h">Checklist compliance</h2>
+    ${compliance(tk)}
+    <h2 class="block-h">Item impact</h2>
+    <p class="sub">Win rate when each item was ticked against when it was not. A long gap means the item matters. Items need at least three trades each way.</p>
+    ${impact(tk)}`;
+}
+function equity(c){
+  const W = 340, H = 160, P = 26; let s = 0; const pts = [0, ...c.map(t => s += t.r)];
+  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts), rng = hi - lo || 1;
+  const x = i => P + (W - P - 8) * i / (pts.length - 1), y = v => 8 + (H - 24) * (1 - (v - lo)/rng);
+  const d = pts.map((v,i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Equity curve, ending at ${fmtR(s)}"><line class="zero" x1="${P}" x2="${W-8}" y1="${y(0)}" y2="${y(0)}"/><text x="0" y="${y(0)+4}">0</text><text x="0" y="${y(hi)+4}">${hi.toFixed(0)}</text><text x="0" y="${y(lo)+4}">${lo.toFixed(0)}</text><path class="ln" d="${d}"/><circle class="dot" cx="${x(pts.length-1)}" cy="${y(s)}" r="5"/></svg>`;
+}
+function breakdown(tk){
+  const key = { session:t => t.session, weekday:t => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(t.ts).getDay()], direction:t => t.dir === "bull" ? "Long" : "Short", entryType:t => t.entryType, inst:t => t.inst }[statBreak];
+  const g = {}; tk.forEach(t => (g[key(t)] = g[key(t)] || []).push(t));
+  const order = statBreak === "weekday" ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] : Object.keys(g).sort();
+  return `<table class="tbl"><thead><tr><th>${statBreak === "weekday" ? "Day" : "Group"}</th><th>Trades</th><th>Win</th><th>Total</th></tr></thead><tbody>${order.filter(k => g[k]).map(k => { const a = agg(g[k]); return `<tr><td>${k}</td><td>${a.n}</td><td>${Math.round(a.wr*100)}%</td><td class="${cls(a.tot)}">${fmtR(a.tot)}</td></tr>`; }).join("")}</tbody></table>`;
+}
+function compliance(tk){
+  const yes = tk.filter(t => t.status === "valid"), no = tk.filter(t => t.status !== "valid"), A = agg(yes), B = agg(no);
+  return `<table class="tbl"><thead><tr><th>Setup</th><th>Trades</th><th>Win</th><th>Avg R</th></tr></thead><tbody>
+    <tr><td>All required ticked</td><td>${A.n}</td><td>${Math.round(A.wr*100)}%</td><td class="${cls(A.avg)}">${fmtR(A.avg)}</td></tr>
+    <tr><td>Taken without</td><td>${B.n}</td><td>${Math.round(B.wr*100)}%</td><td class="${cls(B.avg)}">${fmtR(B.avg)}</td></tr></tbody></table>`;
+}
+function impact(tk){
+  const rows = Object.keys(ITEMS).filter(k => ITEMS[k].r !== 2).map(k => {
+    const yes = tk.filter(t => t.ticks[k]), no = tk.filter(t => !t.ticks[k]);
+    if (yes.length < 3 || no.length < 3) return null;
+    const A = agg(yes), B = agg(no); return { k, A, B, d:A.wr - B.wr };
+  }).filter(Boolean).sort((a,b) => b.d - a.d);
+  if (!rows.length) return `<p class="sub">Not enough variation yet.</p>`;
+  return `<div class="legend"><span><i></i>Ticked</span><span><i class="abs"></i>Not ticked</span></div><ul class="impact">${rows.map(({k,A,B}) => {
+    const lo = Math.min(A.wr, B.wr)*100, hi = Math.max(A.wr, B.wr)*100;
+    return `<li><b>${esc(sw(ITEMS[k].t))}</b><div class="axis" role="img" aria-label="Win rate ${Math.round(A.wr*100)} percent when ticked, ${Math.round(B.wr*100)} percent when not"><span class="link" style="left:${lo}%;width:${hi-lo}%"></span><span class="pt abs" style="left:${B.wr*100}%"></span><span class="pt" style="left:${A.wr*100}%"></span></div>
+      <div class="imeta"><span>${Math.round(A.wr*100)}% vs ${Math.round(B.wr*100)}%</span><span>${fmtR(A.avg)} vs ${fmtR(B.avg)} (n ${A.n}/${B.n})</span></div></li>`; }).join("")}</ul>`;
+}
+
+/* ---------- boot ---------- */
+applyTheme();
+go(["check","log","stats","terms"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "check", false);
+</script>
+</body>
+</html>
