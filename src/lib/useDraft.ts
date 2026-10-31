@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Bias, Ticks } from "@/lib/checklist";
+import { useProfile } from "@/lib/profile";
 
 const KEY = "c3-draft";
 type Local = { ticks: Ticks; bias: Bias; sid: string | null; at: number; dirty: boolean };
@@ -15,6 +16,9 @@ const writeLocal = (v: Local) => { try { localStorage.setItem(KEY, JSON.stringif
 /** The in-progress setup. Local-first so it works offline, mirrored to Supabase so it follows you across devices. */
 export function useDraft() {
   const supabase = useRef(createClient()).current;
+  const { profile } = useProfile();
+  const defaultBias = useRef<Bias>(profile.default_bias);
+  defaultBias.current = profile.default_bias;
   const [ticks, setTicksState] = useState<Ticks>({});
   const [bias, setBiasState] = useState<Bias>("bull");
   const [sid, setSidState] = useState<string | null>(null);
@@ -49,6 +53,10 @@ export function useDraft() {
     if (data) {
       const at = new Date(data.updated_at).getTime();
       if (at > cur.at) { const l = { ticks: data.ticks as Ticks, bias: data.bias as Bias, sid: (data.checklist_id as string | null) ?? null, at, dirty: false }; apply(l); writeLocal(l); }
+    }
+    else if (cur.at === 0) {
+      // nothing saved anywhere yet: start from the default bias in Settings
+      apply({ ...cur, bias: defaultBias.current });
     }
     setSync("synced");
   }, [supabase, push]);

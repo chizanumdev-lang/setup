@@ -1,5 +1,5 @@
-import EntryForm from "@/components/EntryForm";
+import TradeForm from "@/components/TradeForm";
 
 export default function Page() {
-  return <EntryForm />;
+  return <TradeForm />;
 }

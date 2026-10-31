@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrades } from "@/lib/useTrades";
-import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
+import { cls, fmtR, ms, rOf, taken, weekday, type Trade } from "@/lib/format";
 import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { Filters, applyFilters, useFilters } from "@/components/Filters";
 
@@ -104,7 +104,7 @@ function Equity({ chrono }: { chrono: Trade[] }) {
 
 function Breakdown({ tk, dim }: { tk: Trade[]; dim: Dim }) {
   const key = (t: Trade): string =>
-    dim === "weekday" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(ms(t)).getDay()]
+    dim === "weekday" ? weekday(ms(t))
       : dim === "direction" ? (t.direction === "bull" ? "Long" : "Short")
       : String(t[dim] ?? "None");
   const g: Record<string, Trade[]> = {};

@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/refs": "off",
       "@typescript-eslint/ban-ts-comment": "off",
+      "@next/next/no-img-element": "off", // screenshots come from short-lived signed URLs
     },
   },
   // Override default ignores of eslint-config-next.

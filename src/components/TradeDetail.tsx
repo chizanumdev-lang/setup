@@ -2,24 +2,34 @@
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CaretLeft, CheckCircle, Circle, Trash, XCircle } from "@phosphor-icons/react";
+import { CaretLeft, CheckCircle, Circle, PencilSimple, Trash, XCircle } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
 import { StatusPill } from "@/components/LogView";
+import { signedUrls, type TradeImage } from "@/lib/images";
 
 export default function TradeDetail({ id }: { id: string }) {
   const router = useRouter();
   const [t, setT] = useState<Trade | null | undefined>(undefined);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState("");
+  const [shots, setShots] = useState<(TradeImage & { url?: string })[]>([]);
 
   useEffect(() => {
-    createClient().from("trades").select("*").eq("id", id).maybeSingle().then(({ data }) => setT((data as Trade) ?? null));
+    const supabase = createClient();
+    supabase.from("trades").select("*").eq("id", id).maybeSingle().then(({ data }) => setT((data as Trade) ?? null));
+    supabase.from("trade_images").select("id,trade_id,path,label,phase").eq("trade_id", id).then(async ({ data }) => {
+      const list = (data ?? []) as TradeImage[];
+      const urls = await signedUrls(supabase, list.map((i) => i.path));
+      setShots(list.map((i) => ({ ...i, url: urls[i.path] })));
+    });
   }, [id]);
 
   const del = async () => {
-    const { error } = await createClient().from("trades").delete().eq("id", id);
+    const supabase = createClient();
+    if (shots.length) await supabase.storage.from("trade-images").remove(shots.map((s) => s.path));
+    const { error } = await supabase.from("trades").delete().eq("id", id);
     if (error) { setError(error.message); return; }
     router.replace("/log");
   };
@@ -52,6 +62,19 @@ export default function TradeDetail({ id }: { id: string }) {
       <dl className="dl">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>
       {t.notes_pre && <><h2 className="block-h">Notes before</h2><p style={{ margin: 0 }}>{t.notes_pre}</p></>}
       {t.notes_post && <><h2 className="block-h">Notes after</h2><p style={{ margin: 0 }}>{t.notes_post}</p></>}
+      {shots.length > 0 && (
+        <>
+          <h2 className="block-h">Screenshots</h2>
+          <div className="gallery">
+            {shots.map((s) => s.url && (
+              <figure key={s.id}>
+                <a href={s.url} target="_blank" rel="noreferrer"><img src={s.url} alt={`${s.phase === "post" ? "After" : "Before"} screenshot${s.label ? ", " + s.label : ""}`} /></a>
+                <figcaption>{s.phase === "post" ? "After" : "Before"}{s.label ? `: ${s.label}` : ""}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
       <h2 className="block-h">Checklist at the time</h2>
       <ul className="snap">
         {keys.map((k) => {
@@ -65,7 +88,8 @@ export default function TradeDetail({ id }: { id: string }) {
           );
         })}
       </ul>
-      <div style={{ marginTop: 22 }}>
+      <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+        <Link href={`/log/${id}/edit`} className="btn block" style={{ textDecoration: "none" }}><PencilSimple size={22} weight="bold" />Edit trade</Link>
         {!confirm ? (
           <button className="btn ghost block" onClick={() => setConfirm(true)}><Trash size={22} weight="bold" />Delete trade</button>
         ) : (

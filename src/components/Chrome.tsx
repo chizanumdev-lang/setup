@@ -1,29 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpenText, ChartLineUp, CircleHalf, ListChecks, Moon, Notebook, SignOut, Sun } from "@phosphor-icons/react";
+import { BookOpenText, ChartLineUp, CircleHalf, GearSix, ListChecks, Moon, Notebook, SignOut, Sun } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
-
-type Theme = "system" | "light" | "dark";
+import { useProfile } from "@/lib/profile";
 
 export function HeaderActions() {
-  const [theme, setTheme] = useState<Theme>("system");
+  const { profile, update } = useProfile();
   const router = useRouter();
-  useEffect(() => {
-    try {
-      const t = localStorage.getItem("c3-theme");
-      if (t === "light" || t === "dark") setTheme(t);
-    } catch {}
-  }, []);
-  const cycle = () => {
-    const next: Theme = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
-    setTheme(next);
-    try {
-      if (next === "system") { localStorage.removeItem("c3-theme"); document.documentElement.removeAttribute("data-theme"); }
-      else { localStorage.setItem("c3-theme", next); document.documentElement.setAttribute("data-theme", next); }
-    } catch {}
-  };
+  const theme = profile.theme;
+  const cycle = () => { void update({ theme: theme === "system" ? "light" : theme === "light" ? "dark" : "system" }); };
   const signOut = async () => {
     await createClient().auth.signOut();
     router.replace("/login");
@@ -33,6 +19,7 @@ export function HeaderActions() {
   return (
     <div className="who">
       <button className="icon-btn" onClick={cycle} aria-label={`Theme: ${theme}. Tap to change.`}><Icon size={20} weight="bold" /></button>
+      <Link href="/settings" className="icon-btn" aria-label="Settings"><GearSix size={20} weight="bold" /></Link>
       <button className="icon-btn" onClick={signOut} aria-label="Sign out"><SignOut size={20} weight="bold" /></button>
     </div>
   );
@@ -47,7 +34,7 @@ const TABS = [
 
 export function Tabs() {
   const path = usePathname();
-  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/log/new") || path.startsWith("/strategies") : path.startsWith(href));
+  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/log/new") || path.startsWith("/strategies") || path.startsWith("/settings") : path.startsWith(href));
   return (
     <nav className="tabs" aria-label="Main" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
       {TABS.map(({ href, label, Icon }) => (

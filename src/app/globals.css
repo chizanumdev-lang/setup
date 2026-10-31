@@ -270,3 +270,15 @@ details.tip code{font:500 13px var(--mono);background:var(--rule-2);padding:1px 
 .tstack{display:flex;flex-direction:column;gap:12px}
 .tname{font:600 12px var(--mono);margin:0 0 4px;color:var(--muted)}
 .dg figcaption{margin-top:10px;font-size:13px}
+
+/* screenshots */
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.shots figure{margin:0;position:relative;border:1px solid var(--rule);border-radius:var(--r);padding:6px;display:flex;flex-direction:column;gap:6px;background:var(--field)}
+.shots img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:2px;display:block}
+.shots figcaption{font-size:12px;color:var(--muted)}
+.shots input[type=text]{min-height:40px;font-size:14px}
+.shot-x{position:absolute;top:8px;right:8px;width:36px;height:36px;background:var(--sheet)}
+.gallery{display:flex;flex-direction:column;gap:14px}
+.gallery figure{margin:0}
+.gallery img{width:100%;height:auto;border:1px solid var(--rule);border-radius:var(--r);display:block}
+.gallery figcaption{font-size:13px;color:var(--muted);margin-top:4px}

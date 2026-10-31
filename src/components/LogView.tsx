@@ -14,11 +14,12 @@ export const StatusPill = ({ s }: { s: Trade["status"] }) =>
 
 export default function LogView() {
   const router = useRouter();
-  const { trades, error, reload } = useTrades();
+  const { trades, error, waiting, reload } = useTrades();
   const { replace } = useDraft();
   const [filters, setFilters] = useFilters();
   const [mode, setMode] = useState<"list" | "cal">("list");
-  const [undo, setUndo] = useState<{ id: string; ticks: Ticks; bias: Bias } | null>(null);
+  const [undo, setUndo] = useState<{ id: string; ticks: Ticks; bias: Bias; sid?: string | null } | null>(null);
+  const [queued, setQueued] = useState(false);
   const [cal, setCal] = useState({ y: 2026, m: 0 });
   useEffect(() => { const n = new Date(); setCal({ y: n.getFullYear(), m: n.getMonth() }); }, []);
 
@@ -26,6 +27,7 @@ export default function LogView() {
     try {
       const raw = sessionStorage.getItem("c3-undo");
       if (raw) { setUndo(JSON.parse(raw)); sessionStorage.removeItem("c3-undo"); }
+      if (sessionStorage.getItem("c3-queued")) { setQueued(true); sessionStorage.removeItem("c3-queued"); }
     } catch {}
   }, []);
   useEffect(() => { if (!undo) return; const t = setTimeout(() => setUndo(null), 7000); return () => clearTimeout(t); }, [undo]);
@@ -33,7 +35,7 @@ export default function LogView() {
   const doUndo = async () => {
     if (!undo) return;
     await createClient().from("trades").delete().eq("id", undo.id);
-    replace(undo.ticks, undo.bias);
+    replace(undo.ticks, undo.bias, undo.sid);
     setUndo(null);
     router.push("/");
   };
@@ -49,6 +51,7 @@ export default function LogView() {
         <button aria-pressed={mode === "list"} onClick={() => setMode("list")}>List</button>
         <button aria-pressed={mode === "cal"} onClick={() => setMode("cal")}>Calendar</button>
       </div>
+      {(waiting > 0 || queued) && <p className="msg" role="status" style={{ marginBottom: 16 }}>{waiting || 1} trade{(waiting || 1) === 1 ? "" : "s"} saved on this device. They will sync when you are back online.</p>}
       {error && <p className="msg err" role="alert">Couldn&apos;t load trades: {error} <button className="chip" onClick={reload}>Retry</button></p>}
       {trades === null ? (
         <div aria-busy="true"><div className="skel" /><div className="skel" /><div className="skel" /></div>

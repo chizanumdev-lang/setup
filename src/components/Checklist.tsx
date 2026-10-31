@@ -8,12 +8,13 @@ import { findStrategy, useStrategies } from "@/lib/useStrategies";
 import { useDraft } from "@/lib/useDraft";
 import { useTrades } from "@/lib/useTrades";
 import { dayKey, fmtR, ms, rOf, taken } from "@/lib/format";
+import { useProfile } from "@/lib/profile";
 
-const MAX_TRADES = 2;
-const MAX_LOSS_R = 2;
 
 export default function Checklist() {
   const router = useRouter();
+  const { profile } = useProfile();
+  const MAX_TRADES = profile.max_trades_day, MAX_LOSS_R = profile.max_loss_r;
   const { ticks, bias, sid, sync, setTick, setBias, reset, setStrategy } = useDraft();
   const { strategies } = useStrategies();
   const [pending, setPending] = useState<string | null | undefined>(undefined);
@@ -36,7 +37,7 @@ export default function Checklist() {
     if (today.length >= MAX_TRADES) out.push(`You've hit ${today.length} trade${today.length === 1 ? "" : "s"} today. Your limit is ${MAX_TRADES}.`);
     if (-lossR >= MAX_LOSS_R) out.push(`Today's loss is ${fmtR(lossR)}, at your ${MAX_LOSS_R}R daily limit.`);
     return out;
-  }, [trades, now]);
+  }, [trades, now, MAX_TRADES, MAX_LOSS_R]);
 
   const legs = steps.filter((s) => !s.stop);
   const syncText = sync === "synced" ? "Synced to your account" : sync === "saving" ? "Saving" : sync === "offline" ? "Saved on this device. Will sync when you're back online." : "Loading your draft";
