@@ -246,3 +246,21 @@ footer{margin-top:36px;padding-top:12px;border-top:1px solid var(--rule);font-si
 @keyframes sk{to{background-position:-200% 0}}
 
 .view{display:block;padding-top:22px;animation:in .28s var(--ease)}
+
+/* strategies */
+.strategy{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin:0 0 14px}
+.strategy label{font:600 14px var(--body)}
+.strategy select{min-height:44px}
+.strategy .link,.link{font:600 14px var(--body);color:var(--ink);text-underline-offset:3px;min-height:44px;display:inline-grid;place-items:center}
+.strat{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 2px;border-bottom:1px solid var(--rule)}
+.strat-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.strat-main b{font-weight:600}
+.row-actions{display:flex;gap:6px}
+.row-actions .icon-btn:disabled{opacity:.35;cursor:default}
+.ed-sec{margin-top:26px;border-top:2px solid var(--ink);padding-top:12px}
+.ed-sec.stop{border-color:var(--bear)} .ed-sec.stop h2{color:var(--bear)}
+.ed-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.ed-item{border-bottom:1px solid var(--rule);padding:12px 0 14px;margin-bottom:12px}
+.ed-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+details.tip{border:1px solid var(--rule);border-radius:var(--r);padding:0 12px;margin-bottom:6px}
+details.tip code{font:500 13px var(--mono);background:var(--rule-2);padding:1px 5px;border-radius:2px}

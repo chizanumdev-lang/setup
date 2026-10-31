@@ -47,7 +47,7 @@ const TABS = [
 
 export function Tabs() {
   const path = usePathname();
-  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/log/new") : path.startsWith(href));
+  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/log/new") || path.startsWith("/strategies") : path.startsWith(href));
   return (
     <nav className="tabs" aria-label="Main" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
       {TABS.map(({ href, label, Icon }) => (

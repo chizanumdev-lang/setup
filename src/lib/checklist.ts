@@ -59,27 +59,50 @@ export const TIPS: [string, string][] = [
   ["Backtest first", "Run the model on replay, as in the video, before using real money."],
 ];
 
-export const ITEMS: Record<string, { t: string; d: string; r: Level; step: string }> = {};
-STEPS.forEach((s) => s.items.forEach(([k, t, d, r]) => { ITEMS[k] = { t, d, r, step: s.id }; }));
-export const REQ = Object.keys(ITEMS).filter((k) => ITEMS[k].r === 1);
-export const NOGO = Object.keys(ITEMS).filter((k) => ITEMS[k].r === 2);
-export const OPTIONAL = Object.keys(ITEMS).filter((k) => ITEMS[k].r === 0);
-export const CHECKLIST_NAME = "Candle Three";
-export const CHECKLIST_VERSION = 1;
+export type Strategy = { id: string | null; name: string; version: number; steps: Step[]; builtin?: boolean };
+export const BUILTIN: Strategy = { id: null, name: "Candle Three", version: 1, steps: STEPS, builtin: true };
+
+export type Analysis = {
+  items: Record<string, { t: string; d: string; r: Level; step: string }>;
+  req: string[];
+  nogo: string[];
+  optional: string[];
+};
+
+/** Index a strategy's items and split them by level. */
+export function analyze(steps: Step[]): Analysis {
+  const items: Analysis["items"] = {};
+  steps.forEach((s) => s.items.forEach(([k, t, d, r]) => { items[k] = { t, d, r, step: s.id }; }));
+  const keys = Object.keys(items);
+  return {
+    items,
+    req: keys.filter((k) => items[k].r === 1),
+    nogo: keys.filter((k) => items[k].r === 2),
+    optional: keys.filter((k) => items[k].r === 0),
+  };
+}
 
 /** Swap {bull|bear} wording for the chosen bias. */
 export const sw = (s: string, b: Bias): string => s.replace(/\{([^|}]*)\|([^}]*)\}/g, (_, a, c) => (b === "bull" ? a : c));
 
-export function statusOf(t: Ticks): Status {
-  if (NOGO.some((k) => t[k])) return "no_trade";
-  return REQ.every((k) => t[k]) ? "valid" : "incomplete";
+export function statusOf(t: Ticks, steps: Step[]): Status {
+  const { req, nogo } = analyze(steps);
+  if (nogo.some((k) => t[k])) return "no_trade";
+  return req.length > 0 && req.every((k) => t[k]) ? "valid" : "incomplete";
 }
 
-/** Frozen copy of the checklist saved with each trade, so later edits never rewrite history. */
-export function snapshot() {
-  return {
-    name: CHECKLIST_NAME,
-    version: CHECKLIST_VERSION,
-    items: Object.entries(ITEMS).map(([k, v]) => ({ key: k, title: v.t, level: v.r })),
-  };
+/** Short label for a section on the run bar. */
+export const legLabel = (s: Step): string => s.short ?? (s.tf && s.tf.length <= 6 ? s.tf : s.title.slice(0, 5)).trim();
+
+/** Frozen copy of the strategy saved with each trade, so later edits never rewrite history. */
+export const snapshot = (s: Strategy) => ({ name: s.name, version: s.version, steps: s.steps });
+
+/** Read a saved snapshot, including the older flat shape from the first release. */
+export function stepsFromSnapshot(snap: unknown): { name: string; version: number | null; steps: Step[] } {
+  const o = (snap ?? {}) as { name?: string; version?: number; steps?: Step[]; items?: { key: string; title: string; level: Level }[] };
+  if (Array.isArray(o.steps)) return { name: o.name ?? "Strategy", version: o.version ?? null, steps: o.steps };
+  if (Array.isArray(o.items)) {
+    return { name: o.name ?? BUILTIN.name, version: o.version ?? 1, steps: [{ id: "all", title: "Checklist", tf: "", goal: "", items: o.items.map((i) => [i.key, i.title, "", i.level] as Item) }] };
+  }
+  return { name: BUILTIN.name, version: 1, steps: BUILTIN.steps };
 }

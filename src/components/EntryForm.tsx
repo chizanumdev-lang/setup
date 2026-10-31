@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaretLeft, Check } from "@phosphor-icons/react";
-import { REQ, snapshot, statusOf, CHECKLIST_VERSION } from "@/lib/checklist";
+import { analyze, snapshot, statusOf } from "@/lib/checklist";
+import { findStrategy, useStrategies } from "@/lib/useStrategies";
 import { useDraft } from "@/lib/useDraft";
 import { createClient } from "@/lib/supabase/client";
 import { localInput, sessionFor } from "@/lib/format";
@@ -13,8 +14,11 @@ const OUTCOMES = ["Open", "Win", "Loss", "Breakeven", "Skipped"] as const;
 
 export default function EntryForm() {
   const router = useRouter();
-  const { ticks, bias, reset } = useDraft();
-  const status = statusOf(ticks);
+  const { ticks, bias, sid, reset } = useDraft();
+  const { strategies } = useStrategies();
+  const strategy = findStrategy(strategies, sid);
+  const status = statusOf(ticks, strategy.steps);
+  const REQ = analyze(strategy.steps).req;
   const [f, setF] = useState({ inst: "NQ", outcome: "Open", when: "", session: "New York", type: "Reversal", entry: "", stop: "", target: "", r: "", pre: "", post: "", tags: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -54,8 +58,9 @@ export default function EntryForm() {
       direction: bias,
       session: f.session,
       entry_type: f.type,
-      checklist_version: CHECKLIST_VERSION,
-      checklist_snapshot: snapshot(),
+      checklist_id: strategy.id,
+      checklist_version: strategy.version,
+      checklist_snapshot: snapshot(strategy),
       ticks,
       status,
       entry: num(f.entry), stop: num(f.stop), target: num(f.target),
@@ -78,7 +83,7 @@ export default function EntryForm() {
       <Link href="/" className="back" style={{ textDecoration: "none", color: "inherit" }}><CaretLeft size={18} weight="bold" />Back to checklist</Link>
       <h1>Log this setup</h1>
       <p className="lede">
-        {bias === "bull" ? "Bullish" : "Bearish"} setup. {status === "valid" ? "All required items ticked." : status === "no_trade" ? "A no-go item is ticked." : `${reqDone} of ${REQ.length} required items ticked.`}
+        {strategy.name}. {bias === "bull" ? "Bullish" : "Bearish"} setup. {status === "valid" ? "All required items ticked." : status === "no_trade" ? "A no-go item is ticked." : `${reqDone} of ${REQ.length} required items ticked.`}
       </p>
       <form onSubmit={submit} noValidate>
         <div className="g2">

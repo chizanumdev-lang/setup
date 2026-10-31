@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Bias, Ticks } from "@/lib/checklist";
 
 const KEY = "c3-draft";
-type Local = { ticks: Ticks; bias: Bias; at: number; dirty: boolean };
+type Local = { ticks: Ticks; bias: Bias; sid: string | null; at: number; dirty: boolean };
 export type SyncState = "loading" | "synced" | "offline" | "saving";
 
 const readLocal = (): Local | null => {
@@ -17,12 +17,13 @@ export function useDraft() {
   const supabase = useRef(createClient()).current;
   const [ticks, setTicksState] = useState<Ticks>({});
   const [bias, setBiasState] = useState<Bias>("bull");
+  const [sid, setSidState] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncState>("loading");
-  const state = useRef<Local>({ ticks: {}, bias: "bull", at: 0, dirty: false });
+  const state = useRef<Local>({ ticks: {}, bias: "bull", sid: null, at: 0, dirty: false });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uid = useRef<string | null>(null);
 
-  const apply = (l: Local) => { state.current = l; setTicksState(l.ticks); setBiasState(l.bias); };
+  const apply = (l: Local) => { state.current = l; setTicksState(l.ticks); setBiasState(l.bias); setSidState(l.sid ?? null); };
 
   const push = useCallback(async () => {
     timer.current = null;
@@ -31,7 +32,7 @@ export function useDraft() {
     if (!cur.dirty) return;
     setSync("saving");
     const { error } = await supabase.from("drafts").upsert({
-      user_id: uid.current, bias: cur.bias, ticks: cur.ticks, updated_at: new Date(cur.at).toISOString(),
+      user_id: uid.current, bias: cur.bias, ticks: cur.ticks, checklist_id: cur.sid, updated_at: new Date(cur.at).toISOString(),
     });
     if (error) { setSync("offline"); return; }
     state.current = { ...state.current, dirty: cur.at === state.current.at ? false : true };
@@ -43,11 +44,11 @@ export function useDraft() {
     if (!uid.current) return;
     const cur = state.current;
     if (cur.dirty) { await push(); return; }
-    const { data, error } = await supabase.from("drafts").select("bias,ticks,updated_at").eq("user_id", uid.current).maybeSingle();
+    const { data, error } = await supabase.from("drafts").select("bias,ticks,checklist_id,updated_at").eq("user_id", uid.current).maybeSingle();
     if (error) { setSync("offline"); return; }
     if (data) {
       const at = new Date(data.updated_at).getTime();
-      if (at > cur.at) { const l = { ticks: data.ticks as Ticks, bias: data.bias as Bias, at, dirty: false }; apply(l); writeLocal(l); }
+      if (at > cur.at) { const l = { ticks: data.ticks as Ticks, bias: data.bias as Bias, sid: (data.checklist_id as string | null) ?? null, at, dirty: false }; apply(l); writeLocal(l); }
     }
     setSync("synced");
   }, [supabase, push]);
@@ -84,10 +85,11 @@ export function useDraft() {
   };
 
   return {
-    ticks, bias, sync,
+    ticks, bias, sid, sync,
     setTick: (k: string, v: boolean) => commit({ ticks: { ...state.current.ticks, [k]: v } }),
     setBias: (b: Bias) => commit({ bias: b }),
     reset: () => commit({ ticks: {} }),
-    replace: (t: Ticks, b: Bias) => commit({ ticks: t, bias: b }),
+    replace: (t: Ticks, b: Bias, id?: string | null) => commit({ ticks: t, bias: b, ...(id !== undefined ? { sid: id } : {}) }),
+    setStrategy: (id: string | null) => commit({ sid: id, ticks: {} }),
   };
 }

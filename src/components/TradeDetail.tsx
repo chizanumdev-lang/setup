@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaretLeft, CheckCircle, Circle, Trash, XCircle } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
-import { ITEMS, NOGO, OPTIONAL, REQ, sw } from "@/lib/checklist";
+import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
 import { StatusPill } from "@/components/LogView";
 
@@ -39,7 +39,10 @@ export default function TradeDetail({ id }: { id: string }) {
   if (t.stop != null) rows.push(["Stop", String(t.stop)]);
   if (t.target != null) rows.push(["Target", String(t.target)]);
   if (t.tags?.length) rows.push(["Tags", t.tags.join(", ")]);
-  const keys = [...REQ, ...NOGO, ...OPTIONAL];
+  const snap = stepsFromSnapshot(t.checklist_snapshot);
+  const A = analyze(snap.steps);
+  const keys = [...A.req, ...A.nogo, ...A.optional];
+  rows.splice(1, 0, ["Strategy", snap.name + (snap.version ? ` v${snap.version}` : "")]);
 
   return (
     <section className="view">
@@ -53,11 +56,11 @@ export default function TradeDetail({ id }: { id: string }) {
       <ul className="snap">
         {keys.map((k) => {
           const on = !!t.ticks[k];
-          const bad = ITEMS[k].r === 2;
+          const bad = A.items[k].r === 2;
           return (
             <li key={k}>
               {on ? (bad ? <XCircle size={16} weight="bold" className="bearc" /> : <CheckCircle size={16} weight="bold" className="bullc" />) : <Circle size={16} weight="bold" className="mutedc" />}
-              <span className={on ? "" : "mutedc"}>{sw(ITEMS[k].t, t.direction)}{on && bad ? " (present)" : ""}</span>
+              <span className={on ? "" : "mutedc"}>{sw(A.items[k].t, t.direction)}{on && bad ? " (present)" : ""}</span>
             </li>
           );
         })}

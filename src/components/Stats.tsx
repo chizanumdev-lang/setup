@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrades } from "@/lib/useTrades";
 import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
-import { ITEMS, sw } from "@/lib/checklist";
+import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { Filters, applyFilters, useFilters } from "@/components/Filters";
 
 function agg(list: Trade[]) {
@@ -132,32 +132,53 @@ function Compliance({ tk }: { tk: Trade[] }) {
 }
 
 function Impact({ tk }: { tk: Trade[] }) {
-  const rows = Object.keys(ITEMS).filter((k) => ITEMS[k].r !== 2).map((k) => {
-    const yes = tk.filter((t) => t.ticks[k]), no = tk.filter((t) => !t.ticks[k]);
+  // item keys belong to one strategy, so compare within a single strategy at a time
+  const groups = useMemo(() => {
+    const g: Record<string, Trade[]> = {};
+    tk.forEach((t) => (g[stepsFromSnapshot(t.checklist_snapshot).name] = g[stepsFromSnapshot(t.checklist_snapshot).name] || []).push(t));
+    return g;
+  }, [tk]);
+  const names = Object.keys(groups).sort((x, y) => groups[y].length - groups[x].length);
+  const [pick, setPick] = useState("");
+  const name = names.includes(pick) ? pick : names[0];
+  const list = groups[name] ?? [];
+  const latest = [...list].sort((x, y) => ms(y) - ms(x))[0];
+  const A = analyze(latest ? stepsFromSnapshot(latest.checklist_snapshot).steps : []);
+  const rows = Object.keys(A.items).filter((k) => A.items[k].r !== 2).map((k) => {
+    const yes = list.filter((t) => t.ticks[k]), no = list.filter((t) => !t.ticks[k]);
     if (yes.length < 3 || no.length < 3) return null;
-    const A = agg(yes), B = agg(no);
-    return { k, A, B, d: A.wr - B.wr };
+    const a = agg(yes), b = agg(no);
+    return { k, A: a, B: b, d: a.wr - b.wr };
   }).filter((r): r is NonNullable<typeof r> => !!r).sort((x, y) => y.d - x.d);
-  if (!rows.length) return <p className="sub">Not enough variation yet.</p>;
   return (
     <>
-      <div className="legend"><span><i />Ticked</span><span><i className="abs" />Not ticked</span></div>
-      <ul className="impact">
-        {rows.map(({ k, A, B }) => {
-          const lo = Math.min(A.wr, B.wr) * 100, hi = Math.max(A.wr, B.wr) * 100;
-          return (
-            <li key={k}>
-              <b>{sw(ITEMS[k].t, "bull")}</b>
-              <div className="axis" role="img" aria-label={`Win rate ${pct(A.wr)} when ticked, ${pct(B.wr)} when not`}>
-                <span className="link" style={{ left: lo + "%", width: hi - lo + "%" }} />
-                <span className="pt abs" style={{ left: B.wr * 100 + "%" }} />
-                <span className="pt" style={{ left: A.wr * 100 + "%" }} />
-              </div>
-              <div className="imeta"><span>{pct(A.wr)} vs {pct(B.wr)}</span><span>{fmtR(A.avg)} vs {fmtR(B.avg)} (n {A.n}/{B.n})</span></div>
-            </li>
-          );
-        })}
-      </ul>
+      {names.length > 1 && (
+        <div className="f" style={{ marginTop: 8 }}>
+          <label htmlFor="impact-strategy">Strategy</label>
+          <select id="impact-strategy" value={name} onChange={(e) => setPick(e.target.value)}>{names.map((n) => <option key={n}>{n}</option>)}</select>
+        </div>
+      )}
+      {!rows.length ? <p className="sub">Not enough variation yet.</p> : (
+        <>
+          <div className="legend"><span><i />Ticked</span><span><i className="abs" />Not ticked</span></div>
+          <ul className="impact">
+            {rows.map(({ k, A: a, B: b }) => {
+              const lo = Math.min(a.wr, b.wr) * 100, hi = Math.max(a.wr, b.wr) * 100;
+              return (
+                <li key={k}>
+                  <b>{sw(A.items[k].t, "bull")}</b>
+                  <div className="axis" role="img" aria-label={`Win rate ${pct(a.wr)} when ticked, ${pct(b.wr)} when not`}>
+                    <span className="link" style={{ left: lo + "%", width: hi - lo + "%" }} />
+                    <span className="pt abs" style={{ left: b.wr * 100 + "%" }} />
+                    <span className="pt" style={{ left: a.wr * 100 + "%" }} />
+                  </div>
+                  <div className="imeta"><span>{pct(a.wr)} vs {pct(b.wr)}</span><span>{fmtR(a.avg)} vs {fmtR(b.avg)} (n {a.n}/{b.n})</span></div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </>
   );
 }

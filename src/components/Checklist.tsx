@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowCounterClockwise, PencilSimpleLine, Warning } from "@phosphor-icons/react";
-import { NOGO, REQ, STEPS, statusOf, sw } from "@/lib/checklist";
+import Link from "next/link";
+import { analyze, legLabel, statusOf, sw } from "@/lib/checklist";
+import { findStrategy, useStrategies } from "@/lib/useStrategies";
 import { useDraft } from "@/lib/useDraft";
 import { useTrades } from "@/lib/useTrades";
 import { dayKey, fmtR, ms, rOf, taken } from "@/lib/format";
@@ -12,14 +14,19 @@ const MAX_LOSS_R = 2;
 
 export default function Checklist() {
   const router = useRouter();
-  const { ticks, bias, sync, setTick, setBias, reset } = useDraft();
+  const { ticks, bias, sid, sync, setTick, setBias, reset, setStrategy } = useDraft();
+  const { strategies } = useStrategies();
+  const [pending, setPending] = useState<string | null | undefined>(undefined);
+  const strategy = findStrategy(strategies, sid);
+  const steps = strategy.steps;
+  const { req: REQ, nogo: NOGO } = useMemo(() => analyze(steps), [steps]);
   const { trades } = useTrades();
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, []);
 
   const doneReq = REQ.filter((k) => ticks[k]).length;
   const stops = NOGO.filter((k) => ticks[k]).length;
-  const status = statusOf(ticks);
+  const status = statusOf(ticks, steps);
   const valid = status === "valid";
 
   const guard = useMemo(() => {
@@ -31,7 +38,7 @@ export default function Checklist() {
     return out;
   }, [trades, now]);
 
-  const legs = STEPS.filter((s) => !s.stop);
+  const legs = steps.filter((s) => !s.stop);
   const syncText = sync === "synced" ? "Synced to your account" : sync === "saving" ? "Saving" : sync === "offline" ? "Saved on this device. Will sync when you're back online." : "Loading your draft";
 
   return (
@@ -42,6 +49,25 @@ export default function Checklist() {
         <div className="note" role="status" key={m}><Warning size={20} weight="bold" /><span>{m} This is a warning, not a block.</span></div>
       ))}
 
+      <div className="strategy">
+        <label htmlFor="strategy">Strategy</label>
+        <select id="strategy" value={strategy.id ?? ""} onChange={(e) => {
+          const next = e.target.value || null;
+          if (Object.values(ticks).some(Boolean)) setPending(next); else setStrategy(next);
+        }}>
+          {(strategies ?? [strategy]).map((s) => <option key={s.id ?? "builtin"} value={s.id ?? ""}>{s.name}</option>)}
+        </select>
+        <Link href="/strategies" className="link">Manage</Link>
+      </div>
+      {pending !== undefined && (
+        <div className="confirm" role="alertdialog" aria-label="Switch strategy" style={{ marginBottom: 16 }}>
+          <p>Switch strategy? This clears the boxes you have ticked.</p>
+          <div className="g2">
+            <button className="btn" onClick={() => { setStrategy(pending); setPending(undefined); }}>Switch</button>
+            <button className="btn ghost" onClick={() => setPending(undefined)}>Keep</button>
+          </div>
+        </div>
+      )}
       <div className="bar">
         <div className="bar-top">
           <div className="seg" role="group" aria-label="Daily bias">
@@ -60,7 +86,7 @@ export default function Checklist() {
               return (
                 <div className="leg" style={{ flex: req.length }} key={st.id}>
                   <div className="cells">{req.map((i, ix) => <i key={i[0]} className={ticks[i[0]] ? "on" : ""} style={{ "--i": ix } as React.CSSProperties} />)}</div>
-                  <span>{st.short}</span>
+                  <span>{legLabel(st)}</span>
                 </div>
               );
             })}
@@ -69,7 +95,7 @@ export default function Checklist() {
         </div>
       </div>
 
-      {STEPS.map((st) => {
+      {steps.map((st) => {
         const nonStop = st.items.filter((i) => i[3] !== 2);
         const c = nonStop.filter((i) => ticks[i[0]]).length;
         return (
