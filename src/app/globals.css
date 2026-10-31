@@ -264,3 +264,9 @@ footer{margin-top:36px;padding-top:12px;border-top:1px solid var(--rule);font-si
 .ed-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 details.tip{border:1px solid var(--rule);border-radius:var(--r);padding:0 12px;margin-bottom:6px}
 details.tip code{font:500 13px var(--mono);background:var(--rule-2);padding:1px 5px;border-radius:2px}
+
+/* trading-chart style term charts */
+.tchart{width:100%;border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;background:var(--field)}
+.tstack{display:flex;flex-direction:column;gap:12px}
+.tname{font:600 12px var(--mono);margin:0 0 4px;color:var(--muted)}
+.dg figcaption{margin-top:10px;font-size:13px}

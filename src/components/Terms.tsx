@@ -1,24 +1,25 @@
 "use client";
 import { useState } from "react";
 import { GLOSS, TIPS, sw, type Bias } from "@/lib/checklist";
-import { diagram } from "@/lib/diagram";
+import TermChart from "@/components/TermChart";
 
 export default function Terms() {
   const [bias, setBias] = useState<Bias>("bull");
+  const [open, setOpen] = useState<Record<number, boolean>>({});
   return (
     <section className="view">
       <h1>Terms</h1>
-      <p className="lede">Plain-language definitions with a schematic for each. Diagrams are drawn to explain the idea, not taken from real charts, and they flip with the bias you pick.</p>
+      <p className="lede">Plain-language definitions, each with a candlestick chart of the pattern. The prices are generated to explain the idea, not taken from a real market, and the charts flip with the bias you pick.</p>
       <div className="seg" role="group" aria-label="Bias for examples">
         <button className="bull" aria-pressed={bias === "bull"} onClick={() => setBias("bull")}>Bullish</button>
         <button className="bear" aria-pressed={bias === "bear"} onClick={() => setBias("bear")}>Bearish</button>
       </div>
       <div className="fold" style={{ marginTop: 22 }}>
         {GLOSS.map(([t, p], i) => (
-          <details key={t}>
+          <details key={t} onToggle={(e) => { const o = e.currentTarget.open; setOpen((m) => (m[i] === o ? m : { ...m, [i]: o })); }}>
             <summary>{t}</summary>
             <p>{sw(p, bias)}</p>
-            <div dangerouslySetInnerHTML={{ __html: diagram(i, bias) }} />
+            {open[i] && <TermChart index={i} bias={bias} />}
           </details>
         ))}
       </div>

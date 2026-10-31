@@ -1,11 +1,9 @@
-// Schematic candle diagrams for each glossary term.
-// Candle data is written in bullish orientation (higher value = higher price) and mirrored for bearish.
-// Each diagram has numbered markers; the matching plain-language steps are listed under the drawing.
-import { GLOSS, sw, type Bias } from "@/lib/checklist";
+// Pattern data for each glossary term. Candles are written in bullish orientation (higher value = higher price)
+// and mirrored for bearish. Each pattern has numbered markers with matching plain-language steps.
 
 type Candle = [open: number, close: number, high: number, low: number, ghost?: boolean];
-type Dir = "u" | "d" | "l" | "r";
-type Spec = {
+export type Dir = "u" | "d" | "l" | "r";
+export type Spec = {
   c: Candle[];
   /** horizontal level; from/to are slot edges (0 = left edge of first candle) */
   lv?: { v: number; from: number; to: number; label: string }[];
@@ -13,11 +11,11 @@ type Spec = {
   /** short labels under the candle (above it when mirrored) */
   tags?: [index: number, text: string][];
   ring?: [index: number, v: number][];
-  steps: { i: number; v: number; dir?: Dir; text: string }[];
+  steps: { i: number; v: number; dir?: Dir; text: string; n?: number }[];
   smt?: boolean;
 };
 
-const DIAG: Spec[] = [
+export const DIAG: Spec[] = [
   // Candle 2 closure
   {
     c: [[78, 72, 80, 70], [72, 66, 74, 64], [66, 58, 68, 56], [58, 64, 66, 44], [64, 87, 90, 62, true]],
@@ -91,8 +89,8 @@ const DIAG: Spec[] = [
     tags: [[1, "C3"]],
     steps: [
       { i: 1, v: 88, dir: "u", text: "Take the range of C3, wick to wick." },
-      { i: 3, v: 62, dir: "d", text: "EQ is the 50% level of that range." },
-      { i: 2, v: 66, dir: "d", text: "In a candle 4 continuation, price should hold the {upper|lower} half." },
+      { i: 1, v: 62, dir: "l", text: "EQ is the 50% level of that range." },
+      { i: 3, v: 90, dir: "u", text: "In a candle 4 continuation, price should hold the {upper|lower} half." },
     ],
   },
   // Draw on liquidity
@@ -116,78 +114,3 @@ const DIAG: Spec[] = [
     ],
   },
 ];
-
-const W = 360, H = 224, PAD = 20, GUT = 82; // GUT: right gutter that holds level labels
-
-export function diagram(index: number, bias: Bias): string {
-  const d = DIAG[index];
-  if (!d) return "";
-  const flip = bias === "bear";
-  // the tag row sits at the bottom (top when mirrored), so reserve more room on that side
-  const top = flip ? 54 : 34, bot = flip ? 34 : 54;
-  // fit the drawing to the canvas so candles are as large as the data allows
-  const vals = [...d.c.flatMap((c) => [c[2], c[3]]), ...(d.lv ?? []).map((l) => l.v), ...(d.zones ?? []).flatMap((z) => [z.v1, z.v2]), ...(d.ring ?? []).map((r) => r[1])];
-  const lo = d.smt ? 0 : Math.min(...vals), hi = d.smt ? 100 : Math.max(...vals), span = hi - lo || 1;
-  const y = (v: number) => {
-    const t = (v - lo) / span;
-    return flip ? top + t * (H - top - bot) : H - bot - t * (H - top - bot);
-  };
-  const n = Math.max(d.c.length, 1);
-  const plotR = W - GUT;
-  const slot = (plotR - PAD) / n;
-  const X = (i: number) => PAD + slot * (i + 0.5);
-  const E = (e: number) => PAD + slot * e;
-  const up = (dir: Dir | undefined) => (dir === "u" ? (flip ? "d" : "u") : dir === "d" ? (flip ? "u" : "d") : dir);
-  let g = "";
-
-  if (d.smt) {
-    const A = [[0.08, 64], [0.28, 40], [0.5, 58], [0.86, 24]];
-    const B = [[0.08, 64], [0.28, 40], [0.5, 58], [0.86, 46]];
-    const v2 = (v: number) => (flip ? 100 - v : v);
-    const panel = (pts: number[][], ox: number, label: string, marks: [number, number][]) => {
-      const px = (f: number) => ox + 14 + f * 140;
-      const line = pts.map(([f, v]) => `${px(f).toFixed(1)},${y(v2(v)).toFixed(1)}`).join(" ");
-      const dots = [pts[1], pts[3]].map(([f, v]) => `<circle class="pd" cx="${px(f)}" cy="${y(v2(v))}" r="5"/>`).join("");
-      const badges = marks.map(([k, fi]) => badge(k, px(pts[fi][0]), y(v2(pts[fi][1])) + (flip ? -18 : 18))).join("");
-      return `<text x="${ox + 14}" y="${flip ? H - 8 : 14}">${label}</text><polyline class="pl" points="${line}"/>${dots}${badges}`;
-    };
-    g = panel(A, 6, "NQ", [[1, 1], [2, 3]]) + panel(B, 186, "ES", [[1, 1], [3, 3]]);
-  } else {
-    (d.zones ?? []).forEach((z) => {
-      const ya = y(z.v1), yb = y(z.v2);
-      g += `<rect class="zn" x="${E(z.from)}" y="${Math.min(ya, yb)}" width="${E(z.to) - E(z.from)}" height="${Math.abs(ya - yb)}"/>`;
-      if (z.label) g += `<text x="${plotR + 6}" y="${(ya + yb) / 2 + 4}">${sw(z.label, bias)}</text>`;
-    });
-    (d.lv ?? []).forEach((l) => {
-      const x1 = E(l.from), x2 = Math.min(plotR, E(l.to));
-      g += `<line class="ln" x1="${x1}" x2="${x2}" y1="${y(l.v)}" y2="${y(l.v)}"/>`;
-      g += `<text x="${plotR + 6}" y="${y(l.v) + 4}">${sw(l.label, bias)}</text>`;
-    });
-    d.c.forEach(([o, c, h, lo, ghost], k) => {
-      const x = X(k), yo = y(o), yc = y(c), isUp = yc < yo;
-      const col = ghost ? "var(--muted)" : isUp ? "var(--bull)" : "var(--bear)";
-      const bodyH = Math.max(3, Math.abs(yo - yc)), by = Math.min(yo, yc);
-      if (ghost) {
-        g += `<line x1="${x}" x2="${x}" y1="${y(h)}" y2="${y(lo)}" stroke="var(--muted)" stroke-width="2" stroke-dasharray="3 3"/><rect class="gh" x="${x - 9}" y="${by}" width="18" height="${bodyH}"/>`;
-      } else {
-        g += `<line x1="${x}" x2="${x}" y1="${y(h)}" y2="${y(lo)}" stroke="${col}" stroke-width="2.5"/><rect x="${x - 9}" y="${by}" width="18" height="${bodyH}" fill="${col}"/>`;
-      }
-    });
-    (d.tags ?? []).forEach(([i, t]) => {
-      g += `<text x="${X(i)}" y="${flip ? 14 : H - 6}" text-anchor="middle">${t}</text>`;
-    });
-    (d.ring ?? []).forEach(([i, v]) => { g += `<circle class="ring" cx="${X(i)}" cy="${y(v)}" r="9"/>`; });
-    d.steps.forEach((s, k) => {
-      const dir = up(s.dir) ?? "u";
-      const ox = dir === "r" ? 18 : dir === "l" ? -18 : 0, oy = dir === "u" ? -17 : dir === "d" ? 17 : 0;
-      g += badge(k + 1, X(s.i) + ox, y(s.v) + oy);
-    });
-  }
-
-  const steps = d.steps.map((s, k) => `<li><span class="bd">${k + 1}</span><span>${sw(s.text, bias)}</span></li>`).join("");
-  return `<figure class="dg"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${GLOSS[index][0]}, schematic. Steps are listed below.">${g}</svg><ol class="dg-steps">${steps}</ol></figure>`;
-}
-
-function badge(n: number, x: number, y: number) {
-  return `<g><circle class="bg" cx="${x}" cy="${y}" r="9.5"/><text class="bn" x="${x}" y="${y + 3.7}" text-anchor="middle">${n}</text></g>`;
-}
