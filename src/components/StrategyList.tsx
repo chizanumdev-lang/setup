@@ -5,19 +5,19 @@ import { useRouter } from "next/navigation";
 import { CaretLeft, Copy, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { useStrategies } from "@/lib/useStrategies";
-import { useDraft } from "@/lib/useDraft";
+import { useAnalyses } from "@/lib/useAnalyses";
 
 export default function StrategyList() {
   const router = useRouter();
   const { strategies, error, reload } = useStrategies();
-  const { sid, setStrategy } = useDraft();
+  const { items, dropStrategy } = useAnalyses();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [failure, setFailure] = useState("");
 
   const del = async (id: string) => {
     const { error } = await createClient().from("checklists").delete().eq("id", id);
     if (error) { setFailure(error.message); return; }
-    if (sid === id) setStrategy(null);
+    dropStrategy(id);
     setConfirm(null);
     reload();
   };
@@ -39,7 +39,7 @@ export default function StrategyList() {
             <div className="strat" key={s.id ?? "builtin"}>
               <div className="strat-main">
                 <b>{s.name}</b>
-                <span className="sub">{s.builtin ? "Built in" : `Version ${s.version}`}, {count(s.steps)} items{sid === s.id || (sid === null && s.builtin) ? ", in use" : ""}</span>
+                <span className="sub">{s.builtin ? "Built in" : `Version ${s.version}`}, {count(s.steps)} items{items.some((x) => x.sid === s.id) ? ", in use" : ""}</span>
               </div>
               {confirm === s.id ? (
                 <div className="confirm" role="alertdialog" aria-label="Confirm delete" style={{ gridColumn: "1 / -1" }}>

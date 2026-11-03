@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ms, type Trade } from "@/lib/format";
+import Select from "@/components/Select";
 
 export type FilterState = { range: "30" | "90" | "all"; inst: string; outcome: string };
 export const useFilters = () => useState<FilterState>({ range: "all", inst: "All", outcome: "All" });
@@ -15,17 +16,12 @@ export function Filters({ filters, setFilters, insts, withOutcome }: { filters: 
   return (
     <div className="filters">
       {ranges.map(([v, l]) => <button key={v} className="chip" aria-pressed={filters.range === v} onClick={() => setFilters({ ...filters, range: v })}>{l}</button>)}
-      <label className="sr" htmlFor="f-inst">Instrument</label>
-      <select id="f-inst" value={filters.inst} onChange={(e) => setFilters({ ...filters, inst: e.target.value })}>
-        <option value="All">All instruments</option>
-        {insts.map((i) => <option key={i} value={i}>{i}</option>)}
-      </select>
+      <Select size="compact" label="Instrument" hideLabel value={filters.inst} onChange={(v) => setFilters({ ...filters, inst: v })}
+        options={[{ value: "All", label: "All instruments" }, ...insts.map((i) => ({ value: i, label: i }))]} />
       {withOutcome && (
         <>
-          <label className="sr" htmlFor="f-out">Outcome</label>
-          <select id="f-out" value={filters.outcome} onChange={(e) => setFilters({ ...filters, outcome: e.target.value })}>
-            {["All", "Win", "Loss", "Breakeven", "Skipped", "Open"].map((o) => <option key={o} value={o}>{o === "All" ? "All outcomes" : o}</option>)}
-          </select>
+          <Select size="compact" label="Outcome" hideLabel value={filters.outcome} onChange={(v) => setFilters({ ...filters, outcome: v })}
+            options={["All", "Win", "Loss", "Breakeven", "Skipped", "Open"].map((o) => ({ value: o, label: o === "All" ? "All outcomes" : o }))} />
         </>
       )}
     </div>

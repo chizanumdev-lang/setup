@@ -14,13 +14,16 @@ export async function POST() {
   let admin;
   try { admin = createAdmin(); } catch { return NextResponse.json({ error: "Account deletion isn't configured on this server." }, { status: 500 }); }
 
-  // files live at <user id>/<trade id>/<file>
+  // files live at <user id>/<trade id>/<file> and <user id>/drafts/<draft id>/<file>, so walk the folders
   const paths: string[] = [];
-  const folders = await admin.storage.from(BUCKET).list(user.id, { limit: 1000 });
-  for (const f of folders.data ?? []) {
-    const files = await admin.storage.from(BUCKET).list(`${user.id}/${f.name}`, { limit: 1000 });
-    (files.data ?? []).forEach((x) => paths.push(`${user.id}/${f.name}/${x.name}`));
-  }
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    const { data } = await admin.storage.from(BUCKET).list(dir, { limit: 1000 });
+    for (const x of data ?? []) {
+      if (x.id) paths.push(`${dir}/${x.name}`);          // a file
+      else if (depth < 3) await walk(`${dir}/${x.name}`, depth + 1);   // a folder
+    }
+  };
+  await walk(user.id, 0);
   for (let i = 0; i < paths.length; i += 100) {
     const r = await admin.storage.from(BUCKET).remove(paths.slice(i, i + 100));
     if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 });

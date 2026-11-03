@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
 import { StatusPill } from "@/components/LogView";
+import Lightbox from "@/components/Lightbox";
 import { signedUrls, type TradeImage } from "@/lib/images";
 
 export default function TradeDetail({ id }: { id: string }) {
@@ -15,11 +16,12 @@ export default function TradeDetail({ id }: { id: string }) {
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState("");
   const [shots, setShots] = useState<(TradeImage & { url?: string })[]>([]);
+  const [view, setView] = useState<number | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
     supabase.from("trades").select("*").eq("id", id).maybeSingle().then(({ data }) => setT((data as Trade) ?? null));
-    supabase.from("trade_images").select("id,trade_id,path,label,phase").eq("trade_id", id).then(async ({ data }) => {
+    supabase.from("trade_images").select("id,trade_id,path,label,phase,item_key").eq("trade_id", id).then(async ({ data }) => {
       const list = (data ?? []) as TradeImage[];
       const urls = await signedUrls(supabase, list.map((i) => i.path));
       setShots(list.map((i) => ({ ...i, url: urls[i.path] })));
@@ -52,6 +54,10 @@ export default function TradeDetail({ id }: { id: string }) {
   const snap = stepsFromSnapshot(t.checklist_snapshot);
   const A = analyze(snap.steps);
   const keys = [...A.req, ...A.nogo, ...A.optional];
+  // screenshots taken while ticking each step, in checklist order, so they read side by side
+  const stepShots = snap.steps.flatMap((st) => st.items.flatMap(([k, title]) => shots.filter((s) => s.item_key === k && s.url).map((s) => ({ ...s, step: st.title, itemTitle: title }))));
+  const otherShots = shots.filter((s) => !s.item_key);
+  const slides = stepShots.map((s) => ({ url: s.url!, title: sw(s.itemTitle, t.direction), caption: sw(s.step, t.direction) }));
   rows.splice(1, 0, ["Strategy", snap.name + (snap.version ? ` v${snap.version}` : "")]);
 
   return (
@@ -62,11 +68,25 @@ export default function TradeDetail({ id }: { id: string }) {
       <dl className="dl">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>
       {t.notes_pre && <><h2 className="block-h">Notes before</h2><p style={{ margin: 0 }}>{t.notes_pre}</p></>}
       {t.notes_post && <><h2 className="block-h">Notes after</h2><p style={{ margin: 0 }}>{t.notes_post}</p></>}
-      {shots.length > 0 && (
+      {stepShots.length > 0 && (
+        <>
+          <h2 className="block-h">Proof by step</h2>
+          <p className="sub">Tap a screenshot to view it full size and swipe through the steps.</p>
+          <div className="proofgrid">
+            {stepShots.map((s, i) => (
+              <figure key={s.id}>
+                <button onClick={() => setView(i)} aria-label={`View proof for ${sw(s.itemTitle, t.direction)}`}><img src={s.url} alt="" /></button>
+                <figcaption><b>{sw(s.itemTitle, t.direction)}</b><span>{sw(s.step, t.direction)}</span></figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
+      {otherShots.length > 0 && (
         <>
           <h2 className="block-h">Screenshots</h2>
           <div className="gallery">
-            {shots.map((s) => s.url && (
+            {otherShots.map((s) => s.url && (
               <figure key={s.id}>
                 <a href={s.url} target="_blank" rel="noreferrer"><img src={s.url} alt={`${s.phase === "post" ? "After" : "Before"} screenshot${s.label ? ", " + s.label : ""}`} /></a>
                 <figcaption>{s.phase === "post" ? "After" : "Before"}{s.label ? `: ${s.label}` : ""}</figcaption>
@@ -88,6 +108,7 @@ export default function TradeDetail({ id }: { id: string }) {
           );
         })}
       </ul>
+      {view !== null && slides.length > 0 && <Lightbox slides={slides} index={Math.min(view, slides.length - 1)} setIndex={setView} onClose={() => setView(null)} />}
       <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
         <Link href={`/log/${id}/edit`} className="btn block" style={{ textDecoration: "none" }}><PencilSimple size={22} weight="bold" />Edit trade</Link>
         {!confirm ? (

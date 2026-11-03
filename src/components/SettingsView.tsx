@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DownloadSimple, Plus, UploadSimple, Warning, X } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile, type Theme } from "@/lib/profile";
+import Select from "@/components/Select";
 import { buildExport, parseImport, toCsv } from "@/lib/importer";
 import type { Trade } from "@/lib/format";
 import type { Bias } from "@/lib/checklist";
@@ -121,9 +122,8 @@ export default function SettingsView() {
         <div className="ed-head"><h2>Time and defaults</h2></div>
         <div className="f">
           <label htmlFor="tz">Timezone</label>
-          <select id="tz" value={profile.timezone} onChange={(e) => save({ timezone: e.target.value })}>
-            {zones.length ? zones.map((z) => <option key={z}>{z}</option>) : <option>{profile.timezone}</option>}
-          </select>
+          <Select id="tz" label="Timezone" searchable value={profile.timezone} onChange={(v) => save({ timezone: v })}
+            options={(zones.length ? zones : [profile.timezone]).map((z) => ({ value: z, label: z.replace(/_/g, " ") }))} />
           <span className="h">Times in your log and calendar use this. They are stored as UTC.</span>
         </div>
         <div className="f">

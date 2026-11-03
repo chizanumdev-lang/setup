@@ -28,5 +28,11 @@ The run bar: one cell per required item, grouped 1D / 4H / 15m / Risk. Cells fil
 ## Components
 Segmented bias toggle, status box (go / stop), checklist row (28px box, 56px min height), ruled tables, dumbbell plot for item impact (two dots on a 0 to 100% axis), calendar tinted by net R, bottom tab bar (Check, Log, Stats, Terms).
 
+## Dropdowns
+No native selects. One listbox component: a popover under the field on wide screens, a bottom sheet with a title bar on phones. 48px rows, hairline separators, the selected row marked by a yellow edge and a check, optional hint text in mono on the right. Long lists (timezones) get a search box; instruments can be typed and added. Arrow keys, Home/End, Enter, Escape and type-ahead all work.
+
+## Analyses and proof
+Open analyses sit in a horizontally scrolling strip of bordered chips (name, bias arrow, progress, or a tick when valid). The active one is filled ink. Under every ticked step a proof strip shows 52px thumbnails and a dashed "Add proof" button. Tapping a thumbnail opens the native dialog lightbox. A saved trade lists the proofs side by side in a 2 to 3 column grid, each captioned with its step and section.
+
 ## Notes
 History and stats ship with synthetic sample data, labelled as such, with a Clear button.

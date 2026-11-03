@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CaretLeft, Check } from "@phosphor-icons/react";
 import { analyze, snapshot, statusOf } from "@/lib/checklist";
 import { findStrategy, useStrategies } from "@/lib/useStrategies";
-import { useDraft } from "@/lib/useDraft";
+import { useAnalyses } from "@/lib/useAnalyses";
 import { useProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/client";
 import { fromLocalInput, getTimeZone, localInput, sessionFor, type Trade } from "@/lib/format";
 import { isOffline, queueTrade } from "@/lib/outbox";
 import { uploadImages, type Pending } from "@/lib/images";
 import ImagePicker from "@/components/ImagePicker";
+import Select from "@/components/Select";
 
 const OUTCOMES = ["Open", "Win", "Loss", "Breakeven", "Skipped"] as const;
 type F = { inst: string; outcome: string; when: string; session: string; type: string; entry: string; stop: string; target: string; r: string; pre: string; post: string; tags: string };
@@ -22,7 +23,10 @@ export default function TradeForm({ trade }: { trade?: Trade }) {
   const router = useRouter();
   const editing = !!trade;
   const { instruments, profile } = useProfile();
-  const { ticks, bias, sid, reset } = useDraft();
+  const params = useSearchParams();
+  const A = useAnalyses();
+  const an = A.items.find((x) => x.id === params.get("a")) ?? A.active;
+  const ticks = an?.ticks ?? {}, bias = an?.bias ?? "bull", sid = an?.sid ?? null;
   const { strategies } = useStrategies();
   const strategy = findStrategy(strategies, sid);
   const status = editing ? trade.status : statusOf(ticks, strategy.steps);
@@ -40,8 +44,9 @@ export default function TradeForm({ trade }: { trade?: Trade }) {
   useEffect(() => {
     if (editing) return;
     const now = Date.now();
-    setF((p) => ({ ...p, inst: p.inst || instruments[0] || "", when: localInput(now), session: sessionFor(now) }));
-  }, [editing, instruments]);
+    const named = an && an.label && !/^Analysis\b/i.test(an.label) ? an.label.toUpperCase() : "";
+    setF((p) => ({ ...p, inst: p.inst || named || instruments[0] || "", when: localInput(now), session: sessionFor(now) }));
+  }, [editing, instruments, an?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!editing && status === "no_trade") setF((p) => (p.outcome === "Open" ? { ...p, outcome: "Skipped", r: "0" } : p)); }, [status, editing]);
 
   // keep R in step with the outcome and prices
@@ -84,6 +89,7 @@ export default function TradeForm({ trade }: { trade?: Trade }) {
       return;
     }
 
+    if (!an) { setBusy(false); setError("There is no analysis to save. Go back to the checklist."); return; }
     const id = crypto.randomUUID();
     const row = {
       id, user_id: userId, ...fields, direction: bias,
@@ -92,17 +98,23 @@ export default function TradeForm({ trade }: { trade?: Trade }) {
     const { error } = await supabase.from("trades").insert(row);
     if (error) {
       if (isOffline(error.message)) {
+        let hasProof = false;
+        try { hasProof = !!localStorage.getItem("c3-hasproof:" + an.id); } catch {}
+        if (hasProof) { setBusy(false); setError("You're offline. This analysis has step screenshots, which can only be saved with a connection. Save it when you're back online."); return; }
         queueTrade(row);
         try { sessionStorage.setItem("c3-queued", "1"); } catch {}
-        reset();
+        A.finish(an.id);
         router.push("/log");
         return;
       }
       setBusy(false); setError(error.message); return;
     }
-    const up = await uploadImages(supabase, userId, id, pending);
-    try { sessionStorage.setItem("c3-undo", JSON.stringify({ id, ticks, bias, sid })); } catch {}
-    reset();
+    // the screenshots taken while ticking steps move from the analysis to the trade
+    const moved = await supabase.from("trade_images").update({ trade_id: id, draft_id: null }).eq("draft_id", an.id);
+    const up = (moved.error ? moved.error.message : null) ?? await uploadImages(supabase, userId, id, pending);
+    try { sessionStorage.setItem("c3-undo", JSON.stringify({ id, analysis: an })); } catch {}
+    try { localStorage.removeItem("c3-hasproof:" + an.id); } catch {}
+    A.finish(an.id);
     if (up) { router.push(`/log/${id}/edit`); return; }
     router.push("/log");
   };
@@ -120,19 +132,18 @@ export default function TradeForm({ trade }: { trade?: Trade }) {
       <form onSubmit={submit} noValidate>
         <div className="g2">
           <div className="f"><label htmlFor="e-inst">Instrument</label>
-            <input id="e-inst" type="text" list="inst-list" autoComplete="off" autoCapitalize="characters" value={f.inst} onChange={(e) => change("inst", e.target.value)} />
-            <datalist id="inst-list">{instruments.map((i) => <option key={i} value={i} />)}</datalist></div>
+            <Select id="e-inst" label="Instrument" creatable placeholder="Choose or add" value={f.inst} onChange={(v) => change("inst", v)} options={[...new Set([...instruments, ...(f.inst ? [f.inst] : [])])].map((i) => ({ value: i, label: i }))} /></div>
           <div className="f"><label htmlFor="e-out">Outcome</label>
-            <select id="e-out" value={f.outcome} onChange={(e) => change("outcome", e.target.value)}>{OUTCOMES.map((o) => <option key={o}>{o}</option>)}</select></div>
+            <Select id="e-out" label="Outcome" value={f.outcome} onChange={(v) => change("outcome", v)} options={OUTCOMES.map((o) => ({ value: o, label: o }))} /></div>
         </div>
         <div className="f"><label htmlFor="e-when">Date and time</label>
           <input id="e-when" type="datetime-local" value={f.when} onChange={(e) => change("when", e.target.value)} />
           <span className="h">Timezone: {profile.timezone || getTimeZone()}. Stored as UTC. Change it in Settings.</span></div>
         <div className="g2">
           <div className="f"><label htmlFor="e-ses">Session</label>
-            <select id="e-ses" value={f.session} onChange={(e) => change("session", e.target.value)}>{["Asia", "London", "New York", "Other"].map((s) => <option key={s}>{s}</option>)}</select></div>
+            <Select id="e-ses" label="Session" value={f.session} onChange={(v) => change("session", v)} options={["Asia", "London", "New York", "Other"].map((s) => ({ value: s, label: s }))} /></div>
           <div className="f"><label htmlFor="e-type">Entry type</label>
-            <select id="e-type" value={f.type} onChange={(e) => change("type", e.target.value)}>{["Reversal", "Continuation", "Retest", "Positional"].map((s) => <option key={s}>{s}</option>)}</select></div>
+            <Select id="e-type" label="Entry type" value={f.type} onChange={(v) => change("type", v)} options={["Reversal", "Continuation", "Retest", "Positional"].map((s) => ({ value: s, label: s }))} /></div>
         </div>
         <div className="g3">
           <div className="f"><label htmlFor="e-entry">Entry</label><input id="e-entry" type="number" step="any" inputMode="decimal" value={f.entry} onChange={(e) => change("entry", e.target.value)} /></div>

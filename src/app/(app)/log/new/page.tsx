@@ -1,5 +1,6 @@
+import { Suspense } from "react";
 import TradeForm from "@/components/TradeForm";
 
 export default function Page() {
-  return <TradeForm />;
+  return <Suspense><TradeForm /></Suspense>;
 }

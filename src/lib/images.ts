@@ -2,7 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type Phase = "pre" | "post";
-export type TradeImage = { id: string; trade_id: string; path: string; label: string | null; phase: Phase | null };
+export type TradeImage = { id: string; trade_id: string | null; path: string; label: string | null; phase: Phase | null; item_key?: string | null };
 export type Pending = { key: string; file: File; phase: Phase; label: string; preview: string };
 
 const BUCKET = "trade-images";
@@ -49,4 +49,19 @@ export async function deleteImage(supabase: SupabaseClient, img: TradeImage): Pr
   if (a.error) return a.error.message;
   const b = await supabase.from("trade_images").delete().eq("id", img.id);
   return b.error ? b.error.message : null;
+}
+
+/** Upload one proof screenshot for a checklist step while the analysis is still a draft. */
+export async function uploadStepProof(supabase: SupabaseClient, userId: string, draftId: string, itemKey: string, file: File): Promise<{ id: string; path: string } | { error: string }> {
+  try {
+    const blob = await resizeImage(file);
+    const path = `${userId}/drafts/${draftId}/${crypto.randomUUID()}.jpg`;
+    const up = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg" });
+    if (up.error) return { error: up.error.message };
+    const row = await supabase.from("trade_images").insert({ draft_id: draftId, user_id: userId, item_key: itemKey, path }).select("id").single();
+    if (row.error || !row.data) { await supabase.storage.from(BUCKET).remove([path]); return { error: row.error?.message ?? "Couldn't save the screenshot." }; }
+    return { id: row.data.id as string, path };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't upload the screenshot." };
+  }
 }

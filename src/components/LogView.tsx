@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { useTrades } from "@/lib/useTrades";
-import { useDraft } from "@/lib/useDraft";
+import { useAnalyses } from "@/lib/useAnalyses";
+import type { Analysis } from "@/lib/analyses";
 import { cls, dayKey, fmtDay, fmtR, fmtTime, ms, rOf, taken, type Trade } from "@/lib/format";
 import { Filters, applyFilters, useFilters } from "@/components/Filters";
-import type { Bias, Ticks } from "@/lib/checklist";
 
 export const StatusPill = ({ s }: { s: Trade["status"] }) =>
   s === "valid" ? <span className="pill valid">Valid</span> : s === "no_trade" ? <span className="pill no">No trade</span> : <span className="pill inc">Incomplete</span>;
@@ -15,10 +15,10 @@ export const StatusPill = ({ s }: { s: Trade["status"] }) =>
 export default function LogView() {
   const router = useRouter();
   const { trades, error, waiting, reload } = useTrades();
-  const { replace } = useDraft();
+  const { restore } = useAnalyses();
   const [filters, setFilters] = useFilters();
   const [mode, setMode] = useState<"list" | "cal">("list");
-  const [undo, setUndo] = useState<{ id: string; ticks: Ticks; bias: Bias; sid?: string | null } | null>(null);
+  const [undo, setUndo] = useState<{ id: string; analysis: Analysis } | null>(null);
   const [queued, setQueued] = useState(false);
   const [cal, setCal] = useState({ y: 2026, m: 0 });
   useEffect(() => { const n = new Date(); setCal({ y: n.getFullYear(), m: n.getMonth() }); }, []);
@@ -34,8 +34,12 @@ export default function LogView() {
 
   const doUndo = async () => {
     if (!undo) return;
-    await createClient().from("trades").delete().eq("id", undo.id);
-    replace(undo.ticks, undo.bias, undo.sid);
+    const supabase = createClient();
+    const err = await restore(undo.analysis);                     // the analysis must exist again before screenshots can return to it
+    if (!err) {
+      await supabase.from("trade_images").update({ draft_id: undo.analysis.id, trade_id: null }).eq("trade_id", undo.id).not("item_key", "is", null);
+      await supabase.from("trades").delete().eq("id", undo.id);
+    }
     setUndo(null);
     router.push("/");
   };

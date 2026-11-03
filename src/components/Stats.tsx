@@ -5,6 +5,7 @@ import { useTrades } from "@/lib/useTrades";
 import { cls, fmtR, ms, rOf, taken, weekday, type Trade } from "@/lib/format";
 import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { Filters, applyFilters, useFilters } from "@/components/Filters";
+import Select from "@/components/Select";
 
 function agg(list: Trade[]) {
   const tk = list.filter(taken);
@@ -155,7 +156,7 @@ function Impact({ tk }: { tk: Trade[] }) {
       {names.length > 1 && (
         <div className="f" style={{ marginTop: 8 }}>
           <label htmlFor="impact-strategy">Strategy</label>
-          <select id="impact-strategy" value={name} onChange={(e) => setPick(e.target.value)}>{names.map((n) => <option key={n}>{n}</option>)}</select>
+          <Select id="impact-strategy" label="Strategy" value={name} onChange={setPick} options={names.map((n) => ({ value: n, label: n, hint: `${groups[n].length} trades` }))} />
         </div>
       )}
       {!rows.length ? <p className="sub">Not enough variation yet.</p> : (
