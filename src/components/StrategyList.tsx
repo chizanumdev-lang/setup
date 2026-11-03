@@ -6,6 +6,7 @@ import { CaretLeft, Copy, PencilSimple, Plus, Trash } from "@phosphor-icons/reac
 import { createClient } from "@/lib/supabase/client";
 import { useStrategies } from "@/lib/useStrategies";
 import { useAnalyses } from "@/lib/useAnalyses";
+import { TEMPLATES, type Template } from "@/lib/templates";
 
 export default function StrategyList() {
   const router = useRouter();
@@ -22,6 +23,22 @@ export default function StrategyList() {
     reload();
   };
   const count = (steps: { items: unknown[] }[]) => steps.reduce((a, s) => a + s.items.length, 0);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [added, setAdded] = useState<string | null>(null);
+
+  // add a ready-made strategy to this account; it becomes an ordinary strategy the user can edit
+  const addTemplate = async (t: Template) => {
+    setAdding(t.id); setFailure("");
+    const supabase = createClient();
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) { router.replace("/login"); return; }
+    const { error } = await supabase.from("checklists").insert({ user_id: u.user.id, name: t.name, items: t.steps, version: t.version });
+    setAdding(null);
+    if (error) { setFailure(error.message); return; }
+    setAdded(t.name);
+    reload();
+  };
+  const available = TEMPLATES.filter((t) => strategies && !strategies.some((s) => s.name === t.name));
 
   return (
     <section className="view">
@@ -29,7 +46,23 @@ export default function StrategyList() {
       <h1>Strategies</h1>
       <p className="lede">Candle Three is built in. Add your own checklists for other setups. Each trade remembers the strategy and version it used.</p>
       <button className="btn block" onClick={() => router.push("/strategies/new")}><Plus size={22} weight="bold" />New strategy</button>
+      {added && <p className="msg" role="status" style={{ marginTop: 16 }}>Added &quot;{added}&quot;. Pick it on the Check screen, or edit it here.</p>}
       {(error || failure) && <p className="msg err" role="alert" style={{ marginTop: 16 }}>{failure || error}</p>}
+
+      {available.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <h2 className="block-h" style={{ marginTop: 0 }}>Templates</h2>
+          {available.map((t) => (
+            <div className="strat" key={t.id}>
+              <div className="strat-main">
+                <b>{t.name}</b>
+                <span className="sub">{t.blurb}</span>
+              </div>
+              <button className="btn" style={{ minHeight: 44, fontSize: 16 }} onClick={() => addTemplate(t)} disabled={adding === t.id}><Plus size={20} weight="bold" />{adding === t.id ? "Adding" : "Add"}</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ marginTop: 22 }}>
         {strategies === null ? (

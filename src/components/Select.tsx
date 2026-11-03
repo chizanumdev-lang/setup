@@ -32,6 +32,8 @@ export default function Select({ label, value, options, onChange, id, placeholde
   const [phone, setPhone] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number; max: number } | null>(null);
   const typed = useRef({ s: "", t: 0 });
+  const anchor = useRef<{ top: number; left: number } | null>(null);   // where the field was when the list opened
+  const isPhone = useRef(false);
 
   const showSearch = !!(searchable || creatable);
   const shown = useMemo(() => {
@@ -55,9 +57,11 @@ export default function Select({ label, value, options, onChange, id, placeholde
     const el = trigger.current;
     if (!el) return;
     const mq = window.matchMedia(PHONE).matches;
+    isPhone.current = mq;
     setPhone(mq);
     if (mq) { setPos(null); return; }
     const r = el.getBoundingClientRect();
+    anchor.current = { top: r.top, left: r.left };
     const below = window.innerHeight - r.bottom - 12, above = r.top - 12;
     const flip = below < 220 && above > below;
     const max = Math.max(160, Math.min(340, flip ? above : below));
@@ -75,13 +79,24 @@ export default function Select({ label, value, options, onChange, id, placeholde
 
   useEffect(() => {
     if (!open) return;
-    (showSearch ? search.current : list.current)?.focus();
+    // preventScroll: focusing must never move the page, or the list would think it was scrolled away
+    (showSearch ? search.current : list.current)?.focus({ preventScroll: true });
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
       if (trigger.current?.contains(t) || list.current?.closest(".sel-layer")?.contains(t)) return;
       close(false);
     };
-    const onScroll = (e: Event) => { if (!(e.target instanceof Node && list.current?.contains(e.target))) close(false); };
+    // Scrolling the page must not close the list by accident: opening a field can scroll the page (a phone keyboard
+    // appearing, focus jumping), and the phone sheet is fixed to the screen anyway. On wide screens the popover
+    // follows its field, and only closes when the field has really moved away.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && list.current?.contains(e.target)) return;
+      if (isPhone.current) return;
+      const r = trigger.current?.getBoundingClientRect();
+      const a = anchor.current;
+      if (!r || !a) return;
+      if (r.bottom < 0 || r.top > window.innerHeight || Math.abs(r.top - a.top) > 80) close(false); else place();
+    };
     document.addEventListener("pointerdown", away);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", onScroll, true);
@@ -89,7 +104,14 @@ export default function Select({ label, value, options, onChange, id, placeholde
   }, [open, showSearch, close, place]);
 
   useEffect(() => { setActive(0); }, [q]);
-  useEffect(() => { if (open) list.current?.querySelector(`[data-i="${active}"]`)?.scrollIntoView({ block: "nearest" }); }, [active, open]);
+  // keep the highlighted option in view by moving only the list, never the page
+  useEffect(() => {
+    if (!open) return;
+    const l = list.current, el = l?.querySelector<HTMLElement>(`[data-i="${active}"]`);
+    if (!l || !el) return;
+    if (el.offsetTop < l.scrollTop) l.scrollTop = el.offsetTop;
+    else if (el.offsetTop + el.offsetHeight > l.scrollTop + l.clientHeight) l.scrollTop = el.offsetTop + el.offsetHeight - l.clientHeight;
+  }, [active, open]);
 
   const pick = (v: string) => { onChange(v); close(); };
 
