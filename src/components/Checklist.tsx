@@ -13,6 +13,10 @@ import { dayKey, fmtR, ms, rOf, taken } from "@/lib/format";
 import { useProfile } from "@/lib/profile";
 import Select from "@/components/Select";
 import Lightbox from "@/components/Lightbox";
+import VerdictPanel, { VerdictMark } from "@/components/VerdictPanel";
+import { stepVerdict } from "@/lib/ai";
+import { useProofProfile } from "@/lib/useProofProfile";
+import { MIN_DAYS, MIN_TRADES, matchScore } from "@/lib/profileMatch";
 
 export default function Checklist() {
   const router = useRouter();
@@ -28,6 +32,7 @@ export default function Checklist() {
   const steps = strategy.steps;
   const { req: REQ, nogo: NOGO } = useMemo(() => analyze(steps), [steps]);
   const proofs = useStepProofs(a?.id, A.flush);
+  const PP = useProofProfile(trades);
 
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -57,7 +62,14 @@ export default function Checklist() {
   const syncText = A.sync === "synced" ? "Synced to your account" : A.sync === "saving" ? "Saving" : A.sync === "offline" ? "Saved on this device. Will sync when you're back online." : "Loading your analyses";
 
   const index = analyze(steps).items;
-  const slides = view ? (proofs.byKey[view.key] ?? []).filter((p) => p.url).map((p) => ({ url: p.url!, title: index[view.key] ? sw(index[view.key].t, bias) : "Proof", caption: displayLabel(a, A.items.indexOf(a)) })) : [];
+  const slides = view ? (proofs.byKey[view.key] ?? []).filter((p) => p.url).map((p) => {
+    const item = index[view.key];
+    const ctx = { title: item ? sw(item.t, bias) : "Step", detail: item?.d ? sw(item.d, bias) : undefined, bias };
+    return {
+      url: p.url!, title: item ? sw(item.t, bias) : "Proof", caption: displayLabel(a, A.items.indexOf(a)),
+      aside: <VerdictPanel row={p} aiEnabled={profile.ai_enabled} busy={proofs.checking === p.id} error={proofs.checkError} onCheck={() => proofs.check(p, ctx)} onOverride={(v) => proofs.override(p, v)} />,
+    };
+  }) : [];
 
   return (
     <section className="view">
@@ -139,6 +151,8 @@ export default function Checklist() {
           <button className="icon-btn" onClick={() => A.resetTicks(a.id)} aria-label="Reset the ticks on this analysis"><ArrowCounterClockwise size={20} weight="bold" /></button>
         </div>
       </div>
+
+      <MatchLine PP={PP} aiEnabled={profile.ai_enabled} current={Object.fromEntries(Object.keys(index).map((k) => [k, stepVerdict(proofs.byKey[k] ?? [])]))} />
 
       {proofs.error && <p className="msg err" role="alert" style={{ marginTop: 14 }}>{proofs.error}</p>}
 
@@ -243,17 +257,39 @@ function NewAnalysis({ instruments, defaultBias, strategies, defaultSid, onStart
   );
 }
 
-function ProofStrip({ itemKey, list, busy, onAdd, onOpen }: { itemKey: string; list: { id: string; url?: string }[]; busy: boolean; onAdd: (f: FileList) => void; onOpen: (i: number) => void }) {
+function ProofStrip({ itemKey, list, busy, onAdd, onOpen }: { itemKey: string; list: { id: string; url?: string; ai_verdict?: import("@/lib/ai").Verdict | null; user_verdict?: import("@/lib/ai").Verdict | null }[]; busy: boolean; onAdd: (f: FileList) => void; onOpen: (i: number) => void }) {
   const pick = useRef<HTMLInputElement>(null);
   const shown = list.filter((p) => p.url);
   return (
     <div className="proof">
       {shown.map((p, i) => (
-        <button key={p.id} className="thumb" onClick={() => onOpen(i)} aria-label={`View screenshot ${i + 1} of ${shown.length}`}><img src={p.url} alt="" /></button>
+        <button key={p.id} className="thumb" onClick={() => onOpen(i)} aria-label={`View screenshot ${i + 1} of ${shown.length}`}><img src={p.url} alt="" /><VerdictMark row={p} /></button>
       ))}
       {busy && <span className="thumb loading" aria-label="Uploading screenshot" />}
       <button className="proof-add" onClick={() => pick.current?.click()} disabled={busy}><Camera size={18} weight="bold" />{shown.length ? "Add another" : "Add proof"}</button>
       <input ref={pick} id={`proof-${itemKey}`} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files?.length) onAdd(e.target.files); e.target.value = ""; }} />
+    </div>
+  );
+}
+
+/** Profile match for the open analysis. Shows a percentage only once a month of checked trades exists. */
+function MatchLine({ PP, aiEnabled, current }: { PP: ReturnType<typeof useProofProfile>; aiEnabled: boolean; current: Record<string, import("@/lib/ai").Verdict | null> }) {
+  if (PP.loading || (!aiEnabled && !PP.hasProofs)) return null;
+  const r = PP.readiness!;
+  if (!PP.profile) {
+    return (
+      <div className="match" role="status">
+        <b>Winning profile: not predicting yet</b>
+        <p className="sub">Starts after {MIN_DAYS} days and {MIN_TRADES} checked trades. You have {Math.min(r.days, MIN_DAYS)} days and {Math.min(r.trades, MIN_TRADES)} trades so far.</p>
+      </div>
+    );
+  }
+  const pct = matchScore(PP.profile, current);
+  return (
+    <div className="match" role="status">
+      <b>Profile match</b>
+      <span className="match-pct">{pct === null ? "Not enough to compare" : pct + "%"}</span>
+      <p className="sub">Share of your winning steps backed by valid proof here. Based on {PP.profile.trades} checked trades over {r.days} days. It describes your history and does not predict this trade.</p>
     </div>
   );
 }

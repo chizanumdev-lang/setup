@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteImage, signedUrls, uploadStepProof, type TradeImage } from "@/lib/images";
 
-export type Proof = { id: string; path: string; item_key: string; url?: string };
+import type { ProofRow, Verdict } from "@/lib/ai";
+import { fetchProofRows, runCheck, saveOverride } from "@/lib/proofRows";
+
+export type Proof = ProofRow;
 
 /** Screenshot proof attached to the ticked steps of one analysis. */
 export function useStepProofs(draftId: string | undefined, flush: () => Promise<string | null>) {
@@ -11,14 +14,15 @@ export function useStepProofs(draftId: string | undefined, flush: () => Promise<
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [checking, setChecking] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState("");
 
   useEffect(() => {
     setProofs([]); setError("");
     if (!draftId) return;
     let alive = true;
-    supabase.from("trade_images").select("id,path,item_key").eq("draft_id", draftId).order("id").then(async ({ data }) => {
+    fetchProofRows(supabase, { draftId }).then(async (rows) => {
       if (!alive) return;
-      const rows = (data ?? []).filter((r) => r.item_key) as { id: string; path: string; item_key: string }[];
       const urls = await signedUrls(supabase, rows.map((r) => r.path));
       if (alive) setProofs(rows.map((r) => ({ ...r, url: urls[r.path] })));
     });
@@ -60,5 +64,19 @@ export function useStepProofs(draftId: string | undefined, flush: () => Promise<
     return m;
   }, [proofs]);
 
-  return { byKey, busy, error, add, remove, count: proofs.length, clearError: () => setError("") };
+  const check = useCallback(async (p: Proof, ctx: { title: string; detail?: string; bias: "bull" | "bear"; caption?: string }) => {
+    setChecking(p.id); setCheckError("");
+    const r = await runCheck({ imageId: p.id, ...ctx });
+    if (r.ok) setProofs((l) => l.map((x) => (x.id === p.id ? { ...x, ...r.row } : x))); else setCheckError(r.error);
+    setChecking(null);
+  }, []);
+
+  const override = useCallback(async (p: Proof, v: Verdict | null) => {
+    const err = await saveOverride(supabase, p.id, v);
+    if (err) { setCheckError(err); return; }
+    setCheckError("");
+    setProofs((l) => l.map((x) => (x.id === p.id ? { ...x, user_verdict: v } : x)));
+  }, [supabase]);
+
+  return { byKey, busy, error, add, remove, check, override, checking, checkError, count: proofs.length, clearError: () => setError("") };
 }

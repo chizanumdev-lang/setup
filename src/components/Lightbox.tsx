@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { CaretLeft, CaretRight, Trash, X } from "@phosphor-icons/react";
 
-export type Slide = { url: string; title: string; caption?: string };
+export type Slide = { url: string; title: string; caption?: string; aside?: React.ReactNode };
 
 /** Full-size screenshot viewer on the native <dialog>, so focus, Esc and the backdrop behave like the platform. */
 export default function Lightbox({ slides, index, setIndex, onClose, onRemove }: { slides: Slide[]; index: number; setIndex: (i: number) => void; onClose: () => void; onRemove?: (i: number) => void }) {
@@ -27,6 +27,7 @@ export default function Lightbox({ slides, index, setIndex, onClose, onRemove }:
         <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} weight="bold" /></button>
       </div>
       <div className="lb-stage"><img src={s.url} alt={`${s.title}${s.caption ? ", " + s.caption : ""}`} /></div>
+      {s.aside && <div className="lb-aside">{s.aside}</div>}
       <div className="lb-foot">
         {slides.length > 1 ? (
           <div className="row-actions">

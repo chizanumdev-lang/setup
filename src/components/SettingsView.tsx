@@ -177,6 +177,16 @@ export default function SettingsView() {
       </div>
 
       <div className="ed-sec">
+        <div className="ed-head"><h2>AI screenshot check</h2></div>
+        <p className="sub">When on, you can tap Check on a step screenshot and an AI model reads it and says whether it supports that step. Your own call always wins. Checked screenshots also build your winning profile, which stays hidden until you have a month of checked trades.</p>
+        <div className="note" style={{ marginTop: 12 }}><Warning size={20} weight="bold" /><span>Turning this on means the screenshots you check are sent to Groq to be read. Nothing is sent unless you tap Check. AI can misread charts, so treat it as a second opinion.</span></div>
+        <div className="seg plain" role="group" aria-label="AI screenshot check" style={{ marginTop: 4 }}>
+          <button aria-pressed={!profile.ai_enabled} onClick={() => save({ ai_enabled: false })}>Off</button>
+          <button aria-pressed={profile.ai_enabled} onClick={() => save({ ai_enabled: true })}>On</button>
+        </div>
+      </div>
+
+      <div className="ed-sec">
         <div className="ed-head"><h2>Your data</h2></div>
         <p className="sub">Export everything as a backup or to use elsewhere. Importing a JSON export adds trades and strategies without touching what you have.</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>

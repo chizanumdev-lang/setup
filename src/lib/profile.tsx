@@ -5,7 +5,7 @@ import { setTimeZone } from "@/lib/format";
 import type { Bias } from "@/lib/checklist";
 
 export type Theme = "system" | "light" | "dark";
-export type Profile = { timezone: string; default_bias: Bias; max_trades_day: number; max_loss_r: number; theme: Theme };
+export type Profile = { timezone: string; default_bias: Bias; max_trades_day: number; max_loss_r: number; theme: Theme; ai_enabled: boolean };
 type Ctx = {
   profile: Profile;
   instruments: string[];
@@ -18,7 +18,7 @@ type Ctx = {
 const DEFAULT_INSTRUMENTS = ["NQ", "ES", "BTCUSD", "EURUSD"];
 const CACHE = "c3-profile";
 const browserTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-const DEFAULTS: Profile = { timezone: "", default_bias: "bull", max_trades_day: 2, max_loss_r: 2, theme: "system" };
+const DEFAULTS: Profile = { timezone: "", default_bias: "bull", max_trades_day: 2, max_loss_r: 2, theme: "system", ai_enabled: false };
 
 const ProfileCtx = createContext<Ctx | null>(null);
 export const useProfile = () => {
@@ -61,6 +61,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (!alive) return;
       if (!u.user) { setReady(true); return; }
       setUid(u.user.id);
+      // read on its own so the app still loads if the AI column has not been added to the database yet
+      const aiRes = await supabase.from("profiles").select("ai_enabled").eq("id", u.user.id).maybeSingle();
       const [{ data: row }, { data: inst }] = await Promise.all([
         supabase.from("profiles").select("timezone,default_bias,max_trades_day,max_loss_r,theme").eq("id", u.user.id).maybeSingle(),
         supabase.from("instruments").select("symbol").order("symbol"),
@@ -83,6 +85,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         max_trades_day: Number(row?.max_trades_day ?? 2),
         max_loss_r: Number(row?.max_loss_r ?? 2),
         theme: (row?.theme as Theme) ?? "system",
+        ai_enabled: !aiRes.error && !!aiRes.data?.ai_enabled,
       };
       apply(p, symbols);
       try { localStorage.setItem(CACHE, JSON.stringify({ profile: p, instruments: symbols })); } catch {}

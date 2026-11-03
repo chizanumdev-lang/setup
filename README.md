@@ -18,11 +18,13 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public key, safe in the browser (row-level security protects the data) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only. Used by `/api/account/delete`. Never expose it |
 | `NEXT_PUBLIC_SITE_URL` | Local: `http://localhost:3000`. Production: your domain |
+| `GROQ_API_KEY` | Optional. Server only. Enables the AI screenshot check (turn it on in Settings) |
+| `GROQ_VISION_MODEL` | Optional. Overrides the default vision model (`qwen/qwen3.8-27b`) |
 | `DATABASE_URL` | Optional. Only for running migrations from your machine, not needed on Vercel |
 
 ## Database
 
-Apply `supabase/migrations/0001_init.sql` once (SQL editor, or `psql "$DATABASE_URL" -f ...`). It creates the tables, row-level security policies and the private `trade-images` bucket.
+Apply the files in `supabase/migrations/` in order (`0001` to `0003`) once (SQL editor, or `psql "$DATABASE_URL" -f ...`). It creates the tables, row-level security policies and the private `trade-images` bucket.
 
 ## Sign-in
 

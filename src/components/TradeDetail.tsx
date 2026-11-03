@@ -8,6 +8,10 @@ import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { cls, fmtR, ms, rOf, taken, type Trade } from "@/lib/format";
 import { StatusPill } from "@/components/LogView";
 import Lightbox from "@/components/Lightbox";
+import VerdictPanel, { VerdictPill } from "@/components/VerdictPanel";
+import { effective, type ProofRow, type Verdict } from "@/lib/ai";
+import { fetchProofRows, runCheck, saveOverride } from "@/lib/proofRows";
+import { useProfile } from "@/lib/profile";
 import { signedUrls, type TradeImage } from "@/lib/images";
 
 export default function TradeDetail({ id }: { id: string }) {
@@ -17,10 +21,15 @@ export default function TradeDetail({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [shots, setShots] = useState<(TradeImage & { url?: string })[]>([]);
   const [view, setView] = useState<number | null>(null);
+  const { profile } = useProfile();
+  const [ai, setAi] = useState<Record<string, Partial<ProofRow>>>({});
+  const [checking, setChecking] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
     supabase.from("trades").select("*").eq("id", id).maybeSingle().then(({ data }) => setT((data as Trade) ?? null));
+    fetchProofRows(supabase, { tradeId: id }).then((rows) => setAi(Object.fromEntries(rows.map((r) => [r.id, r]))));
     supabase.from("trade_images").select("id,trade_id,path,label,phase,item_key").eq("trade_id", id).then(async ({ data }) => {
       const list = (data ?? []) as TradeImage[];
       const urls = await signedUrls(supabase, list.map((i) => i.path));
@@ -57,7 +66,24 @@ export default function TradeDetail({ id }: { id: string }) {
   // screenshots taken while ticking each step, in checklist order, so they read side by side
   const stepShots = snap.steps.flatMap((st) => st.items.flatMap(([k, title]) => shots.filter((s) => s.item_key === k && s.url).map((s) => ({ ...s, step: st.title, itemTitle: title }))));
   const otherShots = shots.filter((s) => !s.item_key);
-  const slides = stepShots.map((s) => ({ url: s.url!, title: sw(s.itemTitle, t.direction), caption: sw(s.step, t.direction) }));
+  const rowOf = (s: (typeof stepShots)[number]): ProofRow => ({ id: s.id, path: s.path, item_key: s.item_key ?? "", ...ai[s.id] });
+  const detailOf = (key: string) => { const d = A.items[key]?.d; return d ? sw(d, t.direction) : undefined; };
+  const check = async (s: (typeof stepShots)[number]) => {
+    setChecking(s.id); setCheckError("");
+    const r = await runCheck({ imageId: s.id, title: sw(s.itemTitle, t.direction), detail: detailOf(s.item_key ?? ""), bias: t.direction });
+    if (r.ok) setAi((m) => ({ ...m, [s.id]: { ...m[s.id], ...r.row } })); else setCheckError(r.error);
+    setChecking(null);
+  };
+  const override = async (s: (typeof stepShots)[number], v: Verdict | null) => {
+    const err = await saveOverride(createClient(), s.id, v);
+    if (err) { setCheckError(err); return; }
+    setCheckError("");
+    setAi((m) => ({ ...m, [s.id]: { ...m[s.id], user_verdict: v } }));
+  };
+  const slides = stepShots.map((s) => ({
+    url: s.url!, title: sw(s.itemTitle, t.direction), caption: sw(s.step, t.direction),
+    aside: <VerdictPanel row={rowOf(s)} aiEnabled={profile.ai_enabled} busy={checking === s.id} error={checkError} onCheck={() => check(s)} onOverride={(v) => override(s, v)} />,
+  }));
   rows.splice(1, 0, ["Strategy", snap.name + (snap.version ? ` v${snap.version}` : "")]);
 
   return (
@@ -76,7 +102,7 @@ export default function TradeDetail({ id }: { id: string }) {
             {stepShots.map((s, i) => (
               <figure key={s.id}>
                 <button onClick={() => setView(i)} aria-label={`View proof for ${sw(s.itemTitle, t.direction)}`}><img src={s.url} alt="" /></button>
-                <figcaption><b>{sw(s.itemTitle, t.direction)}</b><span>{sw(s.step, t.direction)}</span></figcaption>
+                <figcaption><b>{sw(s.itemTitle, t.direction)}</b><span>{sw(s.step, t.direction)}</span><VerdictPill v={effective(rowOf(s))} small /></figcaption>
               </figure>
             ))}
           </div>

@@ -6,6 +6,7 @@ import { cls, fmtR, ms, rOf, taken, weekday, type Trade } from "@/lib/format";
 import { analyze, stepsFromSnapshot, sw } from "@/lib/checklist";
 import { Filters, applyFilters, useFilters } from "@/components/Filters";
 import Select from "@/components/Select";
+import ProofProfile from "@/components/ProofProfile";
 
 function agg(list: Trade[]) {
   const tk = list.filter(taken);
@@ -82,6 +83,7 @@ function Body({ tk, a, skipped, dim, setDim }: { tk: Trade[]; a: ReturnType<type
       <h2 className="block-h">Item impact</h2>
       <p className="sub">Win rate when each item was ticked against when it was not. A long gap means the item matters. Items need at least three trades each way.</p>
       <Impact tk={tk} />
+      <ProofProfile trades={tk} />
     </>
   );
 }
